@@ -1,0 +1,3324 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestionnaire de Tâches Avancé</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .container {
+            max-width: 1600px;
+        }
+
+
+  .editable-input {
+    width: 100%;
+    border: none;
+    background-color: transparent;
+    font-family: inherit;
+    font-size: inherit;
+    padding: 5px;
+  }
+
+
+  .editable-input:hover {
+    background-color: #f0f0f0;
+  }
+
+
+  .editable-input:focus {
+    background-color: #fff;
+    outline: 2px solid #007bff;
+  }
+        .dashboard-card {
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        .dashboard-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+        .status-badge, .priority-badge, .tag {
+            padding: 0.25rem 0.5rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .status-TO-DO { background-color: #FEF3C7; color: #92400E; }
+        .status-IN-PROGRESS { background-color: #DBEAFE; color: #1E40AF; }
+        .status-DONE { background-color: #D1FAE5; color: #065F46; }
+        .status-LATE { background-color: #FECACA; color: #991B1B; }
+        .priority-HIGH { background-color: #FEE2E2; color: #991B1B; }
+        .priority-MEDIUM { background-color: #FEF3C7; color: #92400E; }
+        .priority-LOW { background-color: #D1FAE5; color: #065F46; }
+        .tag { background-color: #E5E7EB; color: #374151; }
+        .filters-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            padding: 1rem;
+            background-color: white;
+            border-radius: 0.5rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 1rem;
+        }
+        .filter-item {
+            flex: 1;
+            min-width: 200px;
+        }
+        .action-button {
+            transition: all 0.3s ease;
+        }
+        .action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 1rem;
+        }
+        .pagination button {
+            margin: 0 0.25rem;
+        }
+        .options-container {
+            max-height: 250px;
+            overflow-y: auto;
+        }
+        .modal-content {
+            width: 90%;
+            max-width: 1200px;
+            height: 90vh;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 1000;
+        }
+        .modal-body {
+            display: flex;
+            max-height: calc(90vh - 120px);
+        }
+        .task-details-column,
+        .task-metadata-column {
+            border: none;
+            padding: 1rem;
+            background-color: #f9fafb;
+            transition: background-color 0.3s ease;
+        }
+        .task-details-column:hover,
+        .task-metadata-column:hover {
+            background-color: #ffffff;
+        }
+        .task-details-column {
+            width: 70%;
+            padding-right: 1rem;
+            overflow-y: auto;
+        }
+        .task-metadata-column {
+            width: 30%;
+            padding-left: 1rem;
+            overflow-y: auto;
+        }
+        .modal-header {
+            cursor: move;
+        }
+        .comment-container {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .filter-search {
+            width: 100%;
+            padding: 5px;
+            margin-bottom: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .left-column, .right-column {
+            padding: 1rem;
+            background-color: #f9fafb;
+            transition: background-color 0.3s ease;
+        }
+        .left-column:hover, .right-column:hover {
+            background-color: #ffffff;
+        }
+        .left-column {
+            width: 70%;
+            padding-right: 1rem;
+            overflow-y: auto;
+        }
+        .right-column {
+            width: 30%;
+            border-left: 1px solid #e5e7eb;
+            padding-left: 1rem;
+            overflow-y: auto;
+        }
+        .filter-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            padding: 5px;
+        }
+        .checkbox-group label {
+            margin-bottom: 3px;
+        }
+        .modal {
+            z-index: 50;
+        }
+        .custom-select {
+            position: relative;
+            flex: 1 1 200px;
+            max-width: 300px;
+        }
+        .select-selected {
+            background-color: #f1f1f1;
+            padding: 8px 16px;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .border-container {
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+            transition: box-shadow 0.3s ease;
+        }
+        .border-container:hover {
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .select-items {
+            position: absolute;
+            z-index: 20;
+            background-color: #f9f9f9;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 99;
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .select-hide {
+            display: none;
+        }
+        .select-button {
+            width: 100%;
+            padding: 10px;
+            background-color: #ffffff;
+            border: 1px solid #cccccc;
+            color: #000000;
+            text-align: left;
+            cursor: pointer;
+        }
+
+
+          .editable-select {
+            width: 100%;
+            border: none;
+            background-color: transparent;
+            font-family: inherit;
+            font-size: inherit;
+            padding: 5px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 5px center;
+            background-size: 1em;
+          }
+
+
+        .editable-select:hover {
+          background-color: #f0f0f0;
+        }
+
+
+        .editable-select:focus {
+          background-color: #fff;
+          outline: 2px solid #007bff;
+        }
+
+
+        .status-select option[value="TO DO"] { color: #92400E; }
+        .status-select option[value="IN PROGRESS"] { color: #1E40AF; }
+        .status-select option[value="DONE"] { color: #065F46; }
+        .status-select option[value="LATE"] { color: #991B1B; }
+
+
+        .priority-select option[value="HIGH"] { color: #991B1B; }
+        .priority-select option[value="MEDIUM"] { color: #92400E; }
+        .priority-select option[value="LOW"] { color: #065F46; }
+        .select-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 150%;
+            background-color: white;
+            border: 1px solid #ddd;
+            border-top: none;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1001;
+        }
+        .dropdown-options {
+            max-height: 250px;
+            overflow-y: auto;
+            padding: 10px;
+            cursor: pointer;
+            width: 120%;
+        }
+        .dropdown-option label {
+            display: block;
+            padding: 5px;
+            cursor: pointer;
+        }
+        .dropdown-option:hover {
+            background-color: #f0f0f0;
+        }
+        #settingsMenu {
+          display: none;
+        }
+        .dropdown-search {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-bottom: 1px solid #ddd;
+        }
+        .custom-select .select-dropdown {
+            display: none;
+            position: absolute;
+            background-color: white;
+            border: 1px solid #ddd;
+            z-index: 1000;
+            width: auto;
+        }
+        .custom-select.active .select-dropdown {
+            display: block;
+        }
+        .dropdown-option input[type="checkbox"] {
+            margin-right: 5px;
+        }
+        .select-items label {
+            display: block;
+            padding: 8px 16px;
+        }
+        input, select, textarea {
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            padding: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+        }
+        .select-items label:hover {
+            background-color: #f1f1f1;
+        }
+        .issue-row {
+            background-color: #f3f4f6;
+            font-weight: bold;
+        }
+        .task-row {
+            background-color: #ffffff;
+            padding-left: 20px;
+        }
+        .expand-button {
+            cursor: pointer;
+            padding: 0 5px;
+            background: none;
+            border: none;
+            font-size: 1.2em;
+        }
+        .hidden-tasks {
+            display: none;
+        }
+        .issue-row td, .task-row td {
+            vertical-align: middle;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="userInfo" class="absolute top-2 right-2 text-sm text-gray-600"></div>
+    <div class="absolute top-2 right-12 text-sm">
+        <button id="settingsButton" class="bg-gray-200 p-2 rounded-full hover:bg-gray-300 focus:outline-none">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+        </button>
+    </div>
+    <div id="settingsMenu" class="absolute top-12 right-12 bg-white shadow-md rounded-md hidden">
+        <button id="addDataSourceButton" class="block w-full text-left px-4 py-2 hover:bg-gray-100">Add Data Source</button>
+        <button id="editDataSourceButton" class="block w-full text-left px-4 py-2 hover:bg-gray-100">Edit Data Sources</button>
+    </div>
+    <div class="container mx-auto px-4 py-8">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-3xl font-bold text-center" data-translate="title">Advanced Task Manager</h1>
+            <select id="languageSelector" onchange="changeLanguage(this.value)" class="p-2 border rounded">
+                <option value="en">English</option>
+                <option value="fr">Français</option>
+                <option value="ja">日本語</option>
+            </select>
+        </div>
+       
+        <div class="mb-4 flex space-x-4">
+            <button id="listView" class="p-2 bg-gray-200 text-black rounded hover:bg-gray-400 transition" data-translate="listView">List View</button>
+            <button id="kanbanView" class="p-2 bg-gray-200 text-black rounded hover:bg-gray-400 transition" data-translate="kanbanView">Kanban View</button>
+            <button id="dashboardView" class="p-2 bg-gray-200 text-black rounded hover:bg-gray-400 transition" data-translate="dashboardView">Dashboard View</button>
+            <button id="customView" class="p-2 bg-gray-200 text-black rounded hover:bg-gray-400 transition" data-translate="customView">Custom View</button>
+        </div>
+
+
+        <div class="filters-container">
+            <input type="text" id="globalSearch" placeholder="Search..." class="p-2 border rounded">
+            <div class="custom-select" id="statusFilter">
+                <button class="select-button">Status</button>
+                <div class="select-dropdown" style="display: none;">
+                    <input type="text" class="dropdown-search" placeholder="Search...">
+                    <div class="dropdown-options">
+                        <!-- Les options seront ajoutées dynamiquement ici -->
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="custom-select" id="categoryFilter">
+                <button class="select-button">Category</button>
+                <div class="select-dropdown">
+                    <input type="text" class="dropdown-search" placeholder="Search...">
+                    <div class="dropdown-options">
+                        <!-- Options will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="custom-select" id="assigneeFilter">
+                <button class="select-button">Assignee</button>
+                <div class="select-dropdown">
+                    <input type="text" class="dropdown-search" placeholder="Search...">
+                    <div class="dropdown-options">
+                        <!-- Options will be dynamically added here -->
+                    </div>
+                </div>
+            </div>
+            <div class="custom-select" id="issueFilter">
+                <button class="select-button">Issue</button>
+                <div class="select-dropdown" style="display: none;">
+                    <input type="text" class="dropdown-search" placeholder="Search...">
+                    <div class="dropdown-options">
+                        <!-- Les options seront ajoutées dynamiquement ici -->
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="custom-select" id="areaLineFilter">
+                <button class="select-button">Area/Line</button>
+                <div class="select-dropdown" style="display: none;">
+                    <input type="text" class="dropdown-search" placeholder="Search...">
+                    <div class="dropdown-options">
+                        <!-- Les options seront ajoutées dynamiquement ici -->
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="date-range-filter">
+                <input type="text" id="startDateFilter" placeholder="From due date :" class="p-2 border rounded" data-translate="startDate">
+                <input type="text" id="endDateFilter" placeholder="To due date :" class="p-2 border rounded" data-translate="endDate">
+            </div>
+            <select id="priorityFilter" class="p-2 border rounded">
+                <option value="" data-translate="priority">All Priorities</option>
+                <option value="HIGH" data-translate="high">High</option>
+                <option value="MEDIUM" data-translate="medium">Medium</option>
+                <option value="LOW" data-translate="low">Low</option>
+            </select>
+            <input type="text" id="tagFilter" placeholder="Tags" class="p-2 border rounded" data-translate="tags">
+            <button id="clearFilters" class="p-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition" data-translate="clearFilters">Clear filters</button>
+        </div>
+
+
+        <div id="listViewContainer">
+            <div class="mb-4 flex justify-between items-center">
+                <button id="addTask" class="w-12 h-12 bg-green-200 text-black rounded hover:bg-green-600 transition" data-translate="addTask"> + </button>
+                <div>
+                    <button id="exportCSV" class="p-2 bg-green-200 text-black rounded hover:bg-green-600 transition" data-translate="exportCSV">Export to CSV</button>
+                    <button id="exportPDF" class="p-2 bg-green-200 text-black rounded hover:bg-green-600 transition" data-translate="exportPDF">Export to PDF</button>
+                </div>
+            </div>
+            <div id="message-container" class="mb-4"></div>
+           
+
+
+        <div id="kanbanViewContainer" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="kanban-column" id="todo-column">
+                    <h2 class="text-lg font-bold mb-4">À faire</h2>
+                </div>
+                <div class="kanban-column" id="inprogress-column">
+                    <h2 class="text-lg font-bold mb-4">En cours</h2>
+                </div>
+                <div class="kanban-column" id="done-column">
+                    <h2 class="text-lg font-bold mb-4">Terminé</h2>
+                </div>
+                <div class="kanban-column" id="late-column">
+                    <h2 class="text-lg font-bold mb-4">En retard</h2>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="dashboardViewContainer" class="hidden">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="dashboard-card">
+                    <h2 class="text-lg font-bold p-4">Tâches par Statut</h2>
+                    <div class="p-4">
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <h2 class="text-lg font-bold p-4">Tâches par Catégorie</h2>
+                    <div class="p-4">
+                        <canvas id="categoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="dashboard-card">
+                    <h2 class="text-lg font-bold p-4">Productivité Individuelle</h2>
+                    <div class="p-4">
+                        <canvas id="productivityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="customViewContainer" class="hidden">
+            <h2 class="text-2xl font-bold mb-4">Vue Personnalisée</h2>
+            <div class="mb-4">
+                <button id="saveCustomView" class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Sauvegarder la vue</button>
+                <select id="loadCustomView" class="p-2 border rounded ml-2">
+                    <option value="">Charger une vue</option>
+                </select>
+            </div>
+            <div id="customViewContent"></div>
+        </div>
+    </div>
+
+
+    <div id="taskModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center hidden">
+        <div class="modal-content bg-white p-5 rounded-lg shadow-xl w-full max-w-4xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900" id="modalTitle">Task</h3>
+                <button onclick="closeTaskModal()" class="text-gray-400 hover:text-gray-500">
+                    <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="left-column task-details-column">
+                    <form id="taskForm" class="space-y-4">
+                        <input type="hidden" id="editKey">
+                        <input type="hidden" id="editOldStatus" name="OldStatus">
+                        <input type="hidden" id="editRealEndDate" name="RealEndDate">
+                        <input type="hidden" id="editHistory" name="History">
+                        <input type="hidden" id="editSubTasks" name="SubTasks">
+                        <input type="hidden" id="editLastUpdated" name="LastUpdated">
+                        <input type="hidden" id="editUniqueID" name="UniqueID">
+                        <div>
+                            <label for="editIssue" class="block text-sm font-medium text-gray-700">Issue</label>
+                            <input type="text" id="editIssue" name="Issue" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        <div>
+                            <label for="editAction" class="block text-sm font-medium text-gray-700">Action</label>
+                            <textarea id="editAction" name="Action" rows="4" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50"></textarea>
+                        </div>
+                        <div>
+                            <label for="editAreaLine" class="block text-sm font-medium text-gray-700">Area/Line</label>
+                            <input type="text" id="editAreaLine" class="mt-1 block w-full rounded-md border-gray-600 shadow-sm focus:border-indigo-800 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        <div>
+                            <label for="editTags" class="block text-sm font-medium text-gray-700">Tags (comma separated)</label>
+                            <input type="text" id="editTags" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700">Comments</label>
+                            <div id="commentContainer" class="mt-1 border border-gray-300 rounded-md p-2 max-h-40 overflow-y-auto"></div>
+                        </div>
+                        <div>
+                            <label for="editLink" class="block text-sm font-medium text-gray-700">Link</label>
+                            <input type="url" id="editLink" name="Link" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                        </div>
+                    </form>
+                </div>
+                <div class="right-column task-metadata-column">
+                    <div>
+                        <label for="editStatus" class="block text-sm font-medium text-gray-700">Status</label>
+                        <select id="editStatus" name="Status">
+                            <option value="TO DO">To Do</option>
+                            <option value="IN PROGRESS">In Progress</option>
+                            <option value="DONE">Done</option>
+                            <option value="LATE">Late</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editCategory" class="block text-sm font-medium text-gray-700">Category</label>
+                        <input type="text" id="editCategory" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="editAssignee" class="block text-sm font-medium text-gray-700">Assignee</label>
+                        <select id="editAssignee" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <!-- Options will be dynamically filled -->
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editDueDate" class="block text-sm font-medium text-gray-700">Due Date</label>
+                        <input type="date" id="editDueDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                    </div>
+                    <div>
+                        <label for="editPriority" class="block text-sm font-medium text-gray-700">Priority</label>
+                        <select id="editPriority" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="editSubmitter" class="block text-sm font-medium text-gray-700">Submitter</label>
+                        <input type="text" id="editSubmitter" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" readonly>
+                    </div>
+                    <div>
+                        <label for="editSubmissionDate" class="block text-sm font-medium text-gray-700">Submission Date</label>
+                        <input type="date" id="editSubmissionDate" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" readonly>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-5 sm:mt-6 flex justify-end space-x-3">
+                <button type="button" onclick="closeTaskModal()" class="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm">
+                    Cancel
+                </button>
+                <button type="submit" form="taskForm" class="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:text-sm">
+                    Save
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal pour les commentaires -->
+    <div id="commentModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <button id="closeCommentModal" class="absolute top-2 right-2 text-gray-600 hover:text-gray-900">
+                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4">Commentaires</h3>
+                <div id="commentList" class="mb-4 max-h-60 overflow-y-auto"></div>
+                <form id="commentForm">
+                    <textarea id="newComment" class="w-full p-2 border rounded" placeholder="Ajouter un commentaire..."></textarea>
+                    <div class="mt-2 flex justify-between">
+                        <button type="submit" class="p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Ajouter</button>
+                        <button type="button" onclick="closeCommentModal()" class="p-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400 transition">Fermer</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal pour ajouter une source de données -->
+    <div id="addDataSourceModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="modal-content relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Add Data Source</h3>
+            <form id="addDataSourceForm">
+                <div class="mb-4">
+                    <label for="spreadsheetId" class="block text-sm font-medium text-gray-700">Spreadsheet ID</label>
+                    <input type="text" id="spreadsheetId" name="spreadsheetId" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="sheetName" class="block text-sm font-medium text-gray-700">Sheet Name</label>
+                    <input type="text" id="sheetName" name="sheetName" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="actionColumn" class="block text-sm font-medium text-gray-700">Action Column</label>
+                    <input type="text" id="actionColumn" name="actionColumn" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="assigneeColumn" class="block text-sm font-medium text-gray-700">Assignee Column</label>
+                    <input type="text" id="assigneeColumn" name="assigneeColumn" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="dueDateColumn" class="block text-sm font-medium text-gray-700">Due Date Column</label>
+                    <input type="text" id="dueDateColumn" name="dueDateColumn" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="areaLineColumn" class="block text-sm font-medium text-gray-700">Area/Line Column</label>
+                    <input type="text" id="areaLineColumn" name="areaLineColumn" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="submitterColumn" class="block text-sm font-medium text-gray-700">Submitter Column</label>
+                    <input type="text" id="submitterColumn" name="submitterColumn" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="submissionDateColumn" class="block text-sm font-medium text-gray-700">Submission Date Column</label>
+                    <input type="text" id="submissionDateColumn" name="submissionDateColumn" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="mb-4">
+                    <label for="tag" class="block text-sm font-medium text-gray-700">Tag</label>
+                    <input type="text" id="tag" name="tag" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                </div>
+                <div class="flex justify-end">
+                    <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Add</button>
+                    <button type="button" onclick="closeAddDataSourceModal()" class="ml-2 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+
+    <!-- Modal pour éditer les sources de données -->
+    <div id="editDataSourceModal" class="modal fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden">
+        <div class="modal-content relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Edit Data Sources</h3>
+            <div id="dataSourceList" class="mb-4">
+                <!-- La liste des sources de données sera ajoutée ici dynamiquement -->
+            </div>
+            <div class="flex justify-end">
+                <button type="button" onclick="closeEditDataSourceModal()" class="bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">Close</button>
+            </div>
+        </div>
+    </div>
+    <div class="pagination mt-4">
+        <button id="prevPage" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Previous</button>
+        <span id="pageInfo" class="mx-4"></span>
+        <button id="nextPage" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition">Next</button>
+    </div>
+
+
+    <script>
+    // Variables globales
+    let allData = [];
+    let currentView = 'list';
+    let customViews = {};
+    let currentUser = '<?= userEmail ?>';
+    let currentLanguage = 'en-US';
+    let translations = {};
+    let currentPage = 1;
+    let lastSortedColumn = null;
+    let lastSortOrder = 1;
+    const itemsPerPage = 20;
+
+
+    // Initialisation
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM entièrement chargé et analysé");
+        console.log("Utilisateur connecté :", currentUser);
+        
+        loadData();
+        loadFilters();
+        setupFilters();
+        setupEventListeners();
+        initFlatpickr();
+
+
+        // Gestion du bouton de paramètres
+        const settingsButton = document.getElementById('settingsButton');
+        const settingsMenu = document.getElementById('settingsMenu');
+        
+        if (settingsButton && settingsMenu) {
+            settingsButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                settingsMenu.classList.toggle('hidden');
+            });
+        }
+
+
+        document.getElementById('editDataSourceButton').addEventListener('click', function() {
+            document.getElementById('settingsMenu').classList.add('hidden');
+            loadDataSources();
+            document.getElementById('editDataSourceModal').classList.remove('hidden');
+        });
+
+
+        // Événement de clic global pour fermer le menu de paramètres
+        document.addEventListener('click', function(event) {
+            if (settingsButton && settingsMenu && !settingsButton.contains(event.target) && !settingsMenu.contains(event.target)) {
+                settingsMenu.classList.add('hidden');
+            }
+        });
+
+
+        // Gestion des boutons de pagination
+        const prevButton = document.getElementById('prevPage');
+        const nextButton = document.getElementById('nextPage');
+      
+        if (prevButton) {
+            prevButton.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    updateView();
+                }
+            });
+        }
+      
+        if (nextButton) {
+            nextButton.addEventListener('click', () => {
+                const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    updateView();
+                }
+            });
+        }
+    });
+
+
+    function initializeTable() {
+    const container = document.getElementById('task-list');
+    if (!container) {
+        console.error("Conteneur 'task-list' non trouvé");
+        return;
+    }
+
+
+    if (!document.getElementById('taskTable')) {
+        const table = document.createElement('table');
+        table.id = 'taskTable';
+        table.className = 'min-w-full';
+        table.innerHTML = `
+            <thead>
+                <tr class="bg-gray-200 text-gray-600 uppercase text-sm leading-normal">
+                    <th class="py-3 px-6 text-left cursor-pointer" onclick="sortData('Key')">Key</th>
+                    <th class="py-3 px-6 text-left cursor-pointer" colspan="2" onclick="sortData('Issue')">Issue / Action</th>
+                    <th class="py-3 px-6 text-left cursor-pointer" onclick="sortData('Status')">Status</th>
+                    <th class="py-3 px-6 text-left cursor-pointer" onclick="sortData('Category')">Category</th>
+                    <th class="py-3 px-6 text-left cursor-pointer" onclick="sortData('Assignee')">Assignee</th>
+                    <th class="py-3 px-6 text-left cursor-pointer" onclick="sortData('DueDate')">Due Date</th>
+                    <th class="py-3 px-6 text-left cursor-pointer" onclick="sortData('Priority')">Priority</th>
+                    <th class="py-3 px-6 text-left">Link</th>
+                    <th class="py-3 px-6 text-center">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="taskTableBody"></tbody>
+        `;
+        container.appendChild(table);
+    }
+}
+
+
+    function initializeTaskManager() {
+    console.log("Initialisation du Task Manager");
+    const listViewContainer = document.getElementById('listViewContainer');
+    if (!listViewContainer) {
+        console.error("Container 'listViewContainer' non trouvé");
+        return;
+    }
+    
+    if (!document.getElementById('task-list')) {
+        const taskList = document.createElement('div');
+        taskList.id = 'task-list';
+        listViewContainer.appendChild(taskList);
+    }
+    
+    loadData();
+    loadFilters();
+    setupFilters();
+    setupEventListeners();
+    initFlatpickr();
+}
+
+
+document.addEventListener('DOMContentLoaded', initializeTaskManager);
+
+
+    function showLoading() {
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loadingIndicator';
+        loadingDiv.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-gray-900 bg-opacity-50 z-50';
+        loadingDiv.innerHTML = '<div class="animate-spin rounded-full h-32 w-32 border-t-2 border-b-2 border-blue-500"></div>';
+        document.body.appendChild(loadingDiv);
+    }
+
+
+    function hideLoading() {
+        const loadingDiv = document.getElementById('loadingIndicator');
+        if (loadingDiv) {
+            loadingDiv.remove();
+        }
+    }
+
+
+    function checkEmptyData() {
+        if (allData.length === 0) {
+            const container = document.getElementById('task-list');
+            if (container) {
+                container.innerHTML = '<p class="text-center py-4">Aucune donnée n\'est disponible. Vérifiez la connexion au serveur ou ajoutez des tâches.</p>';
+            }
+            showMessage("Aucune donnée n'a été chargée depuis le serveur. Utilisez les données factices pour le débogage.", "warning");
+        }
+    }
+
+
+    function updateUILanguage() {
+        document.querySelectorAll('[data-translate]').forEach(element => {
+            const key = element.getAttribute('data-translate');
+            if (translations[key]) {
+                if (element.tagName === 'INPUT' && element.type === 'text') {
+                    element.placeholder = translations[key];
+                } else {
+                    element.textContent = translations[key];
+                }
+            }
+        });
+
+
+        // Mettre à jour les éléments spécifiques qui ne sont pas gérés par data-translate
+        updateTableHeaders();
+        updateModalTexts();
+        updateSelectOptions();
+    }
+
+
+    function setupFilters() {
+        const filters = ['status', 'category', 'assignee', 'areaLine'];
+        filters.forEach(filterType => {
+            const filter = document.getElementById(`${filterType}Filter`);
+            if (!filter) {
+                console.log(`Filter element for ${filterType} not found`);
+                return;
+            }
+            
+            const button = filter.querySelector('.select-button');
+            const dropdown = filter.querySelector('.select-dropdown');
+
+
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+            });
+
+
+            const search = filter.querySelector('.dropdown-search');
+            const options = filter.querySelector('.dropdown-options');
+
+
+            search.addEventListener('input', () => {
+                const searchValue = search.value.toLowerCase();
+                Array.from(options.children).forEach(option => {
+                    const text = option.textContent.toLowerCase();
+                    option.style.display = text.includes(searchValue) ? '' : 'none';
+                });
+            });
+
+
+            options.addEventListener('change', (e) => {
+                if (e.target.type === 'checkbox') {
+                    updateSelectedText(filter);
+                    applyFilters();
+                    }
+            });
+        });
+
+
+        // Fermer les dropdowns lors d'un clic en dehors
+        document.addEventListener('click', (e) => {
+            const dropdowns = document.querySelectorAll('.select-dropdown');
+            dropdowns.forEach(dropdown => {
+                if (!dropdown.contains(e.target) && !dropdown.previousElementSibling.contains(e.target)) {
+                    dropdown.style.display = 'none';
+                }
+            });
+        });
+    }
+
+
+    function setupCustomDropdowns() {
+        document.querySelectorAll('.custom-select').forEach(select => {
+            const button = select.querySelector('.select-button');
+            const dropdown = select.querySelector('.select-dropdown');
+            const search = select.querySelector('.dropdown-search');
+            const options = select.querySelectorAll('.dropdown-option input[type="checkbox"]');
+
+
+            button.addEventListener('click', () => {
+                select.classList.toggle('active');
+            });
+
+
+            search.addEventListener('input', () => {
+                const searchValue = search.value.toLowerCase();
+                options.forEach(option => {
+                    const text = option.parentElement.textContent.toLowerCase();
+                    option.parentElement.parentElement.style.display = text.includes(searchValue) ? '' : 'none';
+                });
+            });
+
+
+            options.forEach(option => {
+                option.addEventListener('change', () => {
+                    updateSelectedText(select);
+                    applyFilters();
+                });
+            });
+        });
+
+
+        document.addEventListener('click', (e) => {
+            const customSelects = document.querySelectorAll('.custom-select');
+            customSelects.forEach(select => {
+                if (!select.contains(e.target)) {
+                    select.classList.remove('active');
+                }
+            });
+        });
+    }
+
+
+    function updateTableHeaders() {
+        const headers = document.querySelectorAll('th');
+        headers.forEach(header => {
+            const key = header.textContent.toLowerCase().replace(/\s+/g, '');
+            if (translations[key]) {
+                header.textContent = translations[key];
+            }
+        });
+    }
+
+
+    function updateModalTexts() {
+        console.log("Début de updateModalTexts");
+        const elements = [
+            {id: 'modalTitle', key: 'editTask', defaultText: 'Task'},
+            {selector: 'label[for="editAction"]', key: 'action', defaultText: 'Action'},
+            {selector: 'label[for="editStatus"]', key: 'status', defaultText: 'Status'},
+            {selector: 'label[for="editCategory"]', key: 'category', defaultText: 'Category'},
+            {selector: 'label[for="editAssignee"]', key: 'assignee', defaultText: 'Assignee'},
+            {selector: 'label[for="editDueDate"]', key: 'dueDate', defaultText: 'Due Date'},
+            {selector: 'label[for="editAreaLine"]', key: 'areaLine', defaultText: 'Area/Line'},
+            {selector: 'label[for="editPriority"]', key: 'priority', defaultText: 'Priority'},
+            {selector: 'label[for="editTags"]', key: 'tags', defaultText: 'Tags'},
+            {selector: 'label[for="editSubmitter"]', key: 'submitter', defaultText: 'Submitter'},
+            {selector: 'label[for="editSubmissionDate"]', key: 'submissionDate', defaultText: 'Submission Date'},
+            {selector: 'label[for="editLink"]', key: 'addLink', defaultText: 'Add Link'}
+        ];
+
+
+        elements.forEach(({id, selector, key, defaultText}) => {
+            const element = id ? document.getElementById(id) : document.querySelector(selector);
+            if (element) {
+                element.textContent = translations[key] || defaultText;
+            } else {
+                console.warn(`Élément non trouvé: ${id || selector}`);
+            }
+        });
+
+
+        const saveButton = document.querySelector('#taskForm button[type="submit"]');
+        if (saveButton) saveButton.textContent = translations['save'] || 'Save';
+        
+        const cancelButton = document.querySelector('button[onclick="closeTaskModal()"]');
+        if (cancelButton) cancelButton.textContent = translations['cancel'] || 'Cancel';
+
+
+        console.log("Fin de updateModalTexts");
+    }
+
+
+    function updateSelectOptions(selectId, optionKeys) {
+        const select = document.getElementById(selectId);
+        if (select) {
+            Array.from(select.options).forEach((option, index) => {
+                option.textContent = translations[optionKeys[index]] || optionKeys[index];
+            });
+        } else {
+            console.warn(`Select non trouvé: ${selectId}`);
+        }
+    }
+
+
+    function changeLanguage(language) {
+        currentLanguage = language;
+        google.script.run
+            .withSuccessHandler(function(newTranslations) {
+                translations = newTranslations;
+                updateUILanguage();
+                updateView();
+                displayDashboardView();
+                saveUserSettings({ language: language });
+            })
+            .getTranslations(language);
+    }
+
+
+    function loadData() {
+        console.log("Début de loadData()");
+        showLoading();
+        google.script.run
+            .withSuccessHandler(function(response) {
+                console.log("Données reçues du serveur:", response);
+                hideLoading();
+                if (JSON.parse(response).data.length === 0) {
+                    console.warn("Aucune donnée reçue du serveur. Conservation des données factices pour le débogage.");
+                    return;
+                }
+                handleDataLoad(response);
+                updateUserDisplay();
+                loadFilters();
+                updateUILanguage();
+                setupFilters();
+            })
+            .withFailureHandler(function(error) {
+                console.error("Erreur lors du chargement des données:", error);
+                hideLoading();
+                handleError(error);
+            })
+            .getData();
+    }
+
+
+    function saveFilters() {
+        console.log("Début de saveFilters");
+        const filters = {
+            globalSearch: document.getElementById('globalSearch')?.value || '',
+            status: Array.from(document.querySelectorAll('#statusFilter input:checked')).map(cb => cb.value),
+            category: Array.from(document.querySelectorAll('#categoryFilter input:checked')).map(cb => cb.value),
+            assignee: Array.from(document.querySelectorAll('#assigneeFilter input:checked')).map(cb => cb.value),
+            areaLine: Array.from(document.querySelectorAll('#areaLineFilter input:checked')).map(cb => cb.value),
+            startDate: document.getElementById('startDateFilter')?.value || '',
+            endDate: document.getElementById('endDateFilter')?.value || '',
+            priority: document.getElementById('priorityFilter')?.value || '',
+            tag: document.getElementById('tagFilter')?.value || ''
+        };
+
+
+        console.log("Filtres récupérés:", filters);
+
+
+        // Sauvegarder les filtres côté serveur
+        google.script.run
+            .withSuccessHandler(function(result) {
+                console.log("Filtres sauvegardés avec succès:", result);
+                showMessage('Filters saved successfully', 'success');
+            })
+            .withFailureHandler(function(error) {
+                console.error("Erreur lors de la sauvegarde des filtres:", error);
+                showMessage('Error saving filters: ' + error, 'error');
+            })
+            .saveUserFilters(currentUser, filters);
+
+
+        console.log("Fin de saveFilters");
+    }
+
+
+    function loadFilters() {
+        console.log("Début de loadFilters(), utilisateur actuel:", currentUser);
+        google.script.run
+            .withSuccessHandler(function(filters) {
+                console.log("Filtres reçus du serveur:", filters);
+                if (filters) {
+                    document.getElementById('globalSearch').value = filters.globalSearch || '';
+                    applyMultiSelectValues('statusFilter', filters.status || []);
+                    applyMultiSelectValues('categoryFilter', filters.category || []);
+                    applyMultiSelectValues('assigneeFilter', filters.assignee || []);
+                    applyMultiSelectValues('areaLineFilter', filters.areaLine || []);
+                    document.getElementById('startDateFilter').value = filters.startDate || '';
+                    document.getElementById('endDateFilter').value = filters.endDate || '';
+                    document.getElementById('priorityFilter').value = filters.priority || '';
+                    document.getElementById('tagFilter').value = filters.tag || '';
+                    console.log("Filtres appliqués");
+                    updateView();
+                } else {
+                    console.log("Aucun filtre trouvé ou erreur lors de la récupération");
+                }
+            })
+            .withFailureHandler(function(error) {
+                console.error("Erreur lors du chargement des filtres:", error);
+            })
+            .getUserFilters(currentUser);
+    }
+
+
+    function applyMultiSelectValues(filterId, values) {
+        const container = document.getElementById(filterId);
+        if (container) {
+            container.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+                checkbox.checked = values.includes(checkbox.value);
+            });
+            updateSelectedText(container);
+        }
+    }
+
+
+    function formatTags(tags) {
+    if (!tags) return '';
+    if (typeof tags === 'string') tags = tags.split(',');
+    return tags.map(tag => `<span class="tag">${escapeHtml(tag.trim())}</span>`).join(' ');
+}
+
+
+    function handleDataLoad(responseString) {
+    console.log("Début de handleDataLoad avec la réponse:", responseString);
+    try {
+        const response = JSON.parse(responseString);
+        console.log("Réponse parsée:", response);
+        if (response && response.success && Array.isArray(response.data)) {
+            allData = response.data.map(item => {
+                let history, subTasks, comments;
+                try {
+                    history = JSON.parse(item[17] || '[]');
+                    subTasks = JSON.parse(item[15] || '[]');
+                    comments = JSON.parse(item[14] || '[]');
+                } catch (e) {
+                    console.warn("Erreur lors du parsing des données JSON:", e);
+                    history = [];
+                    subTasks = [];
+                    comments = [];
+                }
+                return {
+                    Key: item[0],
+                    Issue: item[1],
+                    Action: item[2],
+                    Status: item[3],
+                    Category: item[4],
+                    Assignee: item[5],
+                    DueDate: item[6],
+                    AreaLine: item[7],
+                    LastUpdated: item[8],
+                    Priority: item[9],
+                    RealEndDate: item[10],
+                    Submitter: item[11],
+                    SubmissionDate: item[12],
+                    UniqueID: item[13],
+                    Tags: Array.isArray(item[14]) ? item[14] : (item[14] ? item[14].split(',').map(tag => tag.trim()) : []),
+                    Comments: JSON.parse(item[15] || '[]'),
+                    SubTasks: JSON.parse(item[16] || '[]'),
+                    History: JSON.parse(item[17] || '[]'),
+                    Link: item[18] || '',
+                    IssueTask: item[19] || ''
+                };
+            });
+            console.log("allData mis à jour:", allData);
+            updateFilters();
+            setupFilters();
+            loadFilters();
+            updateView();
+        } else {
+            throw new Error(response.message || 'Réponse invalide du serveur');
+        }
+    } catch (error) {
+        handleError(error);
+    }
+}
+
+
+    function handleError(error) {
+        console.error('Erreur:', error);
+        showMessage(error.message || 'Une erreur est survenue', 'error');
+    }
+
+
+    function updateUserDisplay() {
+        const userInfoElement = document.getElementById('userInfo');
+        if (userInfoElement) {
+            userInfoElement.textContent = `Connected : ${currentUser}`;
+        }
+    }
+
+
+    function setupEventListeners() {
+        // Utilisez querySelector au lieu de getElementById pour plus de flexibilité
+        const addListeners = (selector, event, callback) => {
+            const elements = document.querySelectorAll(selector);
+            elements.forEach(element => {
+                if (element) {
+                    element.addEventListener(event, callback);
+                }
+            });
+        };
+
+
+        const statusSelect = document.getElementById('editStatus');
+        if (statusSelect) {
+            statusSelect.addEventListener('change', handleStatusChange);
+        } else {
+            console.error("L'élément 'editStatus' n'a pas été trouvé dans le DOM");
+        }
+
+
+        addListeners('#listView, #kanbanView, #dashboardView, #customView', 'click', (e) => switchView(e.target.id.replace('View', '')));
+        
+        addListeners('#addTask', 'click', () => openTaskModal());
+        addListeners('#exportCSV', 'click', exportCSV);
+        addListeners('#exportPDF', 'click', exportPDF);
+        
+        addListeners('#globalSearch', 'input', () => { updateView(); saveFilters(); });
+        addListeners('#search', 'input', () => { updateView(); saveFilters(); });
+        addListeners('#statusFilter, #categoryFilter, #assigneeFilter, #areaLineFilter', 'change', () => { updateView(); saveFilters(); });
+        addListeners('#startDateFilter, #endDateFilter', 'change', () => { updateView(); saveFilters(); });
+        addListeners('#priorityFilter', 'change', () => { updateView(); saveFilters(); });
+        addListeners('#tagFilter', 'input', () => { updateView(); saveFilters(); });
+        addListeners('#clearFilters', 'click', clearFilters);
+        
+        addListeners('#saveCustomView', 'click', saveCustomView);
+        addListeners('#loadCustomView', 'change', loadCustomView);
+
+
+        // Gestion du formulaire de tâche
+        const taskForm = document.getElementById('taskForm');
+        if (taskForm) {
+            taskForm.addEventListener('submit', handleTaskFormSubmit);
+            taskForm.addEventListener('input', validateForm);
+            taskForm.addEventListener('change', validateForm);
+        } else {
+            console.error("Le formulaire de tâche n'a pas été trouvé");
+        }
+
+
+        const commentForm = document.getElementById('commentForm');
+        if (commentForm) {
+            commentForm.addEventListener('submit', handleCommentFormSubmit);
+        }
+
+
+        const closeCommentModalBtn = document.getElementById('closeCommentModal');
+        if (closeCommentModalBtn) {
+            closeCommentModalBtn.addEventListener('click', closeCommentModal);
+        }
+
+
+        const commentModal = document.getElementById('commentModal');
+        if (commentModal) {
+            commentModal.addEventListener('click', function(event) {
+                if (event.target === this) {
+                    closeCommentModal();
+                }
+            });
+        }
+
+
+        // Nouveau : Ajout d'écouteurs pour la validation en temps réel du formulaire
+        const formFields = document.querySelectorAll('#taskForm input, #taskForm select, #taskForm textarea');
+        formFields.forEach(field => {
+            field.addEventListener('input', validateForm);
+            field.addEventListener('change', validateForm);
+        });
+
+
+        // Gestion du bouton de paramètres
+        const settingsButton = document.getElementById('settingsButton');
+        const settingsMenu = document.getElementById('settingsMenu');
+        
+        if (settingsButton && settingsMenu) {
+            settingsButton.addEventListener('click', function(e) {
+                e.stopPropagation();
+                settingsMenu.classList.toggle('hidden');
+            });
+        }
+
+
+        document.getElementById('editDataSourceButton').addEventListener('click', function() {
+            document.getElementById('settingsMenu').classList.add('hidden');
+            loadDataSources();
+            document.getElementById('editDataSourceModal').classList.remove('hidden');
+        });
+
+
+        // Événement de clic global pour fermer le menu de paramètres
+        document.addEventListener('click', function(event) {
+            if (settingsButton && settingsMenu && !settingsButton.contains(event.target) && !settingsMenu.contains(event.target)) {
+                settingsMenu.classList.add('hidden');
+            }
+        });
+
+
+        // Gestionnaire d'événements pour le formulaire d'ajout de source de données
+        const addDataSourceForm = document.getElementById('addDataSourceForm');
+        if (addDataSourceForm) {
+            addDataSourceForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const dataSource = Object.fromEntries(formData.entries());
+                
+                google.script.run
+                    .withSuccessHandler(function() {
+                        closeAddDataSourceModal();
+                        showMessage('Data source added successfully', 'success');
+                    })
+                    .withFailureHandler(function(error) {
+                        showMessage('Error adding data source: ' + error, 'error');
+                    })
+                    .addDataSource(dataSource);
+            });
+        }
+
+
+        // Gestionnaire d'événements pour fermer les modales
+        addListeners('.modal .close-modal', 'click', function() {
+            this.closest('.modal').classList.add('hidden');
+        });
+
+
+        // Gestion des boutons de pagination
+        const prevButton = document.getElementById('prevPage');
+        const nextButton = document.getElementById('nextPage');
+      
+        if (prevButton) {
+            prevButton.addEventListener('click', () => {
+                if (currentPage > 1) {
+                    currentPage--;
+                    updateView();
+                }
+            });
+        }
+      
+        if (nextButton) {
+            nextButton.addEventListener('click', () => {
+                const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+                if (currentPage < totalPages) {
+                    currentPage++;
+                    updateView();
+                }
+            });
+        }
+
+
+        // Setup pour les dropdowns personnalisés
+        setupCustomDropdowns();
+    }
+
+
+    function switchView(view) {
+        currentView = view;
+        // Masquer tous les conteneurs de vue
+        document.getElementById('listViewContainer').classList.add('hidden');
+        document.getElementById('kanbanViewContainer').classList.add('hidden');
+        document.getElementById('dashboardViewContainer').classList.add('hidden');
+        document.getElementById('customViewContainer').classList.add('hidden');
+        
+        // Afficher le conteneur de la vue sélectionnée
+        document.getElementById(`${view}ViewContainer`).classList.remove('hidden');
+        
+        updateView();
+    }
+
+
+    function hasActiveFilters() {
+        const statusFilters = Array.from(document.querySelectorAll('#statusFilter input:checked')).map(cb => cb.value);
+        const categoryFilters = Array.from(document.querySelectorAll('#categoryFilter input:checked')).map(cb => cb.value);
+        const assigneeFilters = Array.from(document.querySelectorAll('#assigneeFilter input:checked')).map(cb => cb.value);
+        const areaLineFilters = Array.from(document.querySelectorAll('#areaLineFilter input:checked')).map(cb => cb.value);
+        const startDateFilter = document.getElementById('startDateFilter')?.value;
+        const endDateFilter = document.getElementById('endDateFilter')?.value;
+        const priorityFilter = document.getElementById('priorityFilter')?.value || '';
+        const tagFilter = document.getElementById('tagFilter')?.value.toLowerCase() || '';
+
+
+        return statusFilters.length > 0 || categoryFilters.length > 0 || assigneeFilters.length > 0 || 
+               areaLineFilters.length > 0 || startDateFilter || endDateFilter || priorityFilter || tagFilter;
+    }
+
+
+    function updateView() {
+    console.log("Début de updateView(). Vue actuelle:", currentView);
+    
+    const filteredData = filterData();
+    console.log("Nombre d'éléments filtrés:", filteredData.length);
+    
+    switch (currentView) {
+        case 'list':
+            displayListView(filteredData);
+            break;
+        case 'kanban':
+            displayKanbanView(filteredData);
+            break;
+        case 'dashboard':
+            displayDashboardView(filteredData);
+            break;
+        case 'custom':
+            displayCustomView(filteredData);
+            break;
+        default:
+            console.warn("Vue non reconnue:", currentView);
+    }
+    
+    updateUILanguage();
+}
+
+
+    function updatePagination(totalItems) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const pageInfo = document.getElementById('pageInfo');
+    const prevButton = document.getElementById('prevPage');
+    const nextButton = document.getElementById('nextPage');
+
+
+    if (pageInfo) pageInfo.textContent = `Page ${currentPage} of ${totalPages}`;
+    if (prevButton) prevButton.disabled = currentPage === 1;
+    if (nextButton) nextButton.disabled = currentPage === totalPages;
+
+
+    if (prevButton) {
+        prevButton.onclick = () => {
+            if (currentPage > 1) {
+                currentPage--;
+                displayListView(allData);
+            }
+        };
+    }
+    if (nextButton) {
+        nextButton.onclick = () => {
+            if (currentPage < totalPages) {
+                currentPage++;
+                displayListView(allData);
+            }
+        };
+    }
+}
+
+
+    function filterData() {
+    console.log("Début de filterData()");
+    const globalSearchTerm = document.getElementById('globalSearch')?.value.toLowerCase() || '';
+    console.log("Terme de recherche global:", globalSearchTerm);
+    
+    console.log("Nombre total d'éléments avant filtrage:", allData.length);
+
+
+    if (!globalSearchTerm && !hasActiveFilters()) {
+        console.log("Aucun filtre appliqué, retour de toutes les données");
+        return allData;
+    }
+
+
+    let filteredData = allData.filter(item => {
+        const matchesGlobalSearch = globalSearchTerm === '' || 
+            Object.values(item).some(value => 
+                value && value.toString().toLowerCase().includes(globalSearchTerm)
+            );
+
+
+        const statusFilters = Array.from(document.querySelectorAll('#statusFilter input:checked')).map(cb => cb.value);
+        const categoryFilters = Array.from(document.querySelectorAll('#categoryFilter input:checked')).map(cb => cb.value);
+        const assigneeFilters = Array.from(document.querySelectorAll('#assigneeFilter input:checked')).map(cb => cb.value);
+        const areaLineFilters = Array.from(document.querySelectorAll('#areaLineFilter input:checked')).map(cb => cb.value);
+        const startDateFilter = document.getElementById('startDateFilter')?.value;
+        const endDateFilter = document.getElementById('endDateFilter')?.value;
+        const priorityFilter = document.getElementById('priorityFilter')?.value || '';
+        const tagFilter = document.getElementById('tagFilter')?.value.toLowerCase() || '';
+
+
+        const matchesStatus = statusFilters.length === 0 || statusFilters.includes(item.Status);
+        const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(item.Category);
+        const matchesAssignee = assigneeFilters.length === 0 || assigneeFilters.includes(item.Assignee);
+        const matchesAreaLine = areaLineFilters.length === 0 || areaLineFilters.includes(item.AreaLine);
+        
+        const itemDate = new Date(item.DueDate);
+        const matchesDate = (!startDateFilter || itemDate >= new Date(startDateFilter)) &&
+                            (!endDateFilter || itemDate <= new Date(endDateFilter));
+        
+        const matchesPriority = !priorityFilter || item.Priority === priorityFilter;
+        const matchesTag = !tagFilter || (item.Tags && item.Tags.some(tag => tag.toLowerCase().includes(tagFilter)));
+
+
+        return matchesGlobalSearch && matchesStatus && matchesCategory && matchesAssignee && 
+               matchesAreaLine && matchesDate && matchesPriority && matchesTag;
+    });
+
+
+    console.log("Nombre d'éléments après filtrage:", filteredData.length);
+    console.log("Données filtrées:", filteredData);
+    return filteredData;
+}
+
+
+    function testDisplayWithMockData() {
+        console.log("Test d'affichage avec des données factices");
+        const mockData = [
+            { Key: "VK-1", Action: "Tâche test 1", Status: "TO DO", Category: "Test", Assignee: "User1", DueDate: "2023-12-31", Priority: "HIGH", Tags: ["test"] },
+            { Key: "VK-2", Action: "Tâche test 2", Status: "IN PROGRESS", Category: "Dev", Assignee: "User2", DueDate: "2023-12-15", Priority: "MEDIUM", Tags: ["dev"] }
+        ];
+        allData = mockData;
+        updateView();
+    }
+
+
+    function filterOptions(input, filterId) {
+        const filterValue = input.value.toLowerCase();
+        const optionsContainer = document.querySelector(`#${filterId} .options-container`);
+        const options = optionsContainer.querySelectorAll('label');
+
+
+        options.forEach(option => {
+            const text = option.textContent.toLowerCase();
+            if (text.includes(filterValue)) {
+                option.style.display = '';
+            } else {
+                option.style.display = 'none';
+            }
+        });
+    }
+
+
+    function saveUserSettings(settings) {
+        google.script.run
+            .withSuccessHandler(function(success) {
+                if (success) {
+                    console.log("Paramètres utilisateur sauvegardés avec succès");
+                } else {
+                    console.error("Erreur lors de la sauvegarde des paramètres utilisateur");
+                }
+            })
+            .saveUserSettings(currentUser, settings);
+    }
+
+
+   function displayListView(data) {
+  console.log("Début de displayListView avec", data.length, "éléments");
+  
+  initializeTable();
+
+
+  const taskTableBody = document.getElementById('taskTableBody');
+  if (!taskTableBody) {
+    console.error("Élément 'taskTableBody' non trouvé");
+    return;
+  }
+
+
+  taskTableBody.innerHTML = '';
+
+
+  if (data.length === 0) {
+    taskTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4">No tasks match the filter criteria or no tasks are available.</td></tr>';
+    return;
+  }
+
+
+  const groupedData = groupTasksByIssue(data);
+
+
+  groupedData.forEach((issue, index) => {
+    const issueRow = createIssueRow(issue, index);
+    taskTableBody.appendChild(issueRow);
+
+
+    if (issue.actions && issue.actions.length > 0) {
+      issue.actions.forEach(action => {
+        const actionRow = createActionRow(action, index);
+        taskTableBody.appendChild(actionRow);
+      });
+    } else {
+      console.log("Aucune action trouvée pour l'issue:", issue.Key);
+    }
+  });
+
+
+  addEventListeners();
+  updatePagination(groupedData.length);
+}
+
+
+function groupTasksByIssue(tasks) {
+    console.log("Début de groupTasksByIssue avec", tasks.length, "tâches");
+    
+    const issueGroups = {};
+
+
+    // Première passe : créer les groupes d'issues (IK)
+    tasks.forEach(task => {
+        if (task && task.Key && task.Key.startsWith('IK-')) {
+            issueGroups[task.Key] = {
+                ...task,
+                actions: []
+            };
+        }
+    });
+
+
+    // Deuxième passe : associer les tâches (VK) aux issues (IK)
+    tasks.forEach(task => {
+        if (task && task.Key && task.Key.startsWith('VK-')) {
+            // Chercher l'issue parent dans la colonne Issue
+            const parentIssueKey = task.Issue;
+            if (issueGroups[parentIssueKey]) {
+                issueGroups[parentIssueKey].actions.push(task);
+            } else {
+                console.log("Tâche orpheline trouvée:", task.Key, "pour l'issue", parentIssueKey);
+            }
+        }
+    });
+
+
+    console.log("Groupes d'issues créés:", Object.keys(issueGroups).length);
+    return Object.values(issueGroups);
+}
+
+
+
+
+function createIssueRow(issue, index) {
+  const row = document.createElement('tr');
+  row.className = 'issue-row';
+  row.dataset.issueIndex = index;
+
+
+  row.innerHTML = `
+    <td class="py-3 px-6 text-left whitespace-nowrap">${escapeHtml(issue.Key || '')}</td>
+    <td class="py-3 px-6 text-left" colspan="2">
+      <div class="flex items-center">
+        <button class="expand-button mr-2" data-issue-index="${index}">▶</button>
+        <input type="text" class="editable-input" value="${escapeHtml(issue.Issue || '')}" data-key="${issue.Key}" data-field="Issue">
+      </div>
+    </td>
+    <td class="py-3 px-6 text-left">
+      <select class="editable-select status-select" data-key="${issue.Key}" data-field="Status">
+        <option value="TO DO" ${issue.Status === 'TO DO' ? 'selected' : ''}>To Do</option>
+        <option value="IN PROGRESS" ${issue.Status === 'IN PROGRESS' ? 'selected' : ''}>In Progress</option>
+        <option value="DONE" ${issue.Status === 'DONE' ? 'selected' : ''}>Done</option>
+        <option value="LATE" ${issue.Status === 'LATE' ? 'selected' : ''}>Late</option>
+      </select>
+    </td>
+    <td class="py-3 px-6 text-left">${escapeHtml(issue.Category || '')}</td>
+    <td class="py-3 px-6 text-left">${escapeHtml(issue.Assignee || '')}</td>
+    <td class="py-3 px-6 text-left">${formatDate(issue.DueDate)}</td>
+    <td class="py-3 px-6 text-left">
+      <select class="editable-select priority-select" data-key="${issue.Key}" data-field="Priority">
+        <option value="HIGH" ${issue.Priority === 'HIGH' ? 'selected' : ''}>High</option>
+        <option value="MEDIUM" ${issue.Priority === 'MEDIUM' ? 'selected' : ''}>Medium</option>
+        <option value="LOW" ${issue.Priority === 'LOW' ? 'selected' : ''}>Low</option>
+      </select>
+    </td>
+    <td class="py-3 px-6 text-left">${issue.Link ? `<a href="${escapeHtml(issue.Link)}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}</td>
+    <td class="py-3 px-6 text-center flex justify-center">
+      <button class="action-button edit-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded mr-2" data-key="${escapeHtml(issue.Key || '')}">
+        <i class="fas fa-edit"></i>
+      </button>
+      <button class="action-button comment-button bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded" data-key="${escapeHtml(issue.Key || '')}">
+        <i class="fas fa-comment"></i>
+      </button>
+    </td>
+  `;
+
+
+  return row;
+}
+
+
+
+
+    function escapeHtml(unsafe) {
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+}
+
+
+    function createTaskRow(task, issueIndex) {
+    const row = document.createElement('tr');
+    row.className = 'task-row hidden';
+    row.dataset.issueIndex = issueIndex;
+
+
+    row.innerHTML = `
+        <td class="py-3 px-6 text-left whitespace-nowrap">${escapeHtml(task.Key || '')}</td>
+        <td class="py-3 px-6 text-left pl-8" colspan="2">${escapeHtml(task.Action || '')}</td>
+        <td class="py-3 px-6 text-left">
+            <span class="status-badge status-${(task.Status || '').replace(/\s/g, '-')}">${task.Status || ''}</span>
+        </td>
+        <td class="py-3 px-6 text-left">${escapeHtml(task.Category || '')}</td>
+        <td class="py-3 px-6 text-left">${escapeHtml(task.Assignee || '')}</td>
+        <td class="py-3 px-6 text-left">${formatDate(task.DueDate)}</td>
+        <td class="py-3 px-6 text-left">
+            <span class="priority-badge priority-${(task.Priority || '').trim()}">${task.Priority || ''}</span>
+        </td>
+        <td class="py-3 px-6 text-left">${formatTags(task.Tags)}</td>
+        <td class="py-3 px-6 text-left">${task.Link ? `<a href="${escapeHtml(task.Link)}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}</td>
+        <td class="py-3 px-6 text-center flex justify-center">
+            <button class="action-button edit-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded mr-2" data-key="${escapeHtml(task.Key || '')}">
+                <i class="fas fa-edit"></i>
+            </button>
+            <button class="action-button comment-button bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded" data-key="${escapeHtml(task.Key || '')}">
+                <i class="fas fa-comment"></i>
+            </button>
+        </td>
+    `;
+
+
+    return row;
+}
+
+
+function createActionRow(action, issueIndex) {
+  const row = document.createElement('tr');
+  row.className = 'task-row hidden';
+  row.dataset.issueIndex = issueIndex;
+
+
+  const assignees = getUniqueAssignees();
+  const assigneeOptions = assignees.map(assignee => 
+    `<option value="${escapeHtml(assignee)}" ${action.Assignee === assignee ? 'selected' : ''}>${escapeHtml(assignee)}</option>`
+  ).join('');
+
+
+  row.innerHTML = `
+    <td class="py-3 px-6 text-left whitespace-nowrap">${escapeHtml(action.Key || '')}</td>
+    <td class="py-3 px-6 text-left pl-8" colspan="2">
+      <input type="text" class="editable-input" value="${escapeHtml(action.Action || '')}" data-key="${action.Key}" data-field="Action">
+    </td>
+    <td class="py-3 px-6 text-left">
+      <select class="editable-select status-select" data-key="${action.Key}" data-field="Status">
+        <option value="TO DO" ${action.Status === 'TO DO' ? 'selected' : ''}>To Do</option>
+        <option value="IN PROGRESS" ${action.Status === 'IN PROGRESS' ? 'selected' : ''}>In Progress</option>
+        <option value="DONE" ${action.Status === 'DONE' ? 'selected' : ''}>Done</option>
+        <option value="LATE" ${action.Status === 'LATE' ? 'selected' : ''}>Late</option>
+      </select>
+    </td>
+    <td class="py-3 px-6 text-left">${escapeHtml(action.Category || '')}</td>
+    <td class="py-3 px-6 text-left">
+      <select class="editable-select assignee-select" data-key="${action.Key}" data-field="Assignee">
+        ${assigneeOptions}
+        <option value="new">Add new assignee</option>
+      </select>
+    </td>
+    <td class="py-3 px-6 text-left">${formatDate(action.DueDate)}</td>
+    <td class="py-3 px-6 text-left">
+      <select class="editable-select priority-select" data-key="${action.Key}" data-field="Priority">
+        <option value="HIGH" ${action.Priority === 'HIGH' ? 'selected' : ''}>High</option>
+        <option value="MEDIUM" ${action.Priority === 'MEDIUM' ? 'selected' : ''}>Medium</option>
+        <option value="LOW" ${action.Priority === 'LOW' ? 'selected' : ''}>Low</option>
+      </select>
+    </td>
+    <td class="py-3 px-6 text-left">${action.Link ? `<a href="${escapeHtml(action.Link)}" target="_blank" rel="noopener noreferrer">Link</a>` : ''}</td>
+    <td class="py-3 px-6 text-center flex justify-center">
+      <button class="action-button edit-button bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded mr-2" data-key="${escapeHtml(action.Key || '')}">
+        <i class="fas fa-edit"></i>
+      </button>
+      <button class="action-button comment-button bg-green-500 hover:bg-green-600 text-white font-bold py-1 px-2 rounded" data-key="${escapeHtml(action.Key || '')}">
+        <i class="fas fa-comment"></i>
+      </button>
+    </td>
+  `;
+
+
+  return row;
+}
+
+
+function toggleTasks(issueIndex) {
+    console.log("Toggling tasks for issue index:", issueIndex);
+    const taskRows = document.querySelectorAll(`.task-row[data-issue-index="${issueIndex}"]`);
+    const expandButton = document.querySelector(`.issue-row[data-issue-index="${issueIndex}"] .expand-button`);
+    
+    console.log("Number of task rows found:", taskRows.length);
+    
+    if (taskRows.length === 0) {
+        console.warn("No task rows found for this issue");
+        return;
+    }
+
+
+    let isExpanded = !taskRows[0].classList.contains('hidden');
+    console.log("Current state:", isExpanded ? "expanded" : "collapsed");
+    
+    taskRows.forEach(row => {
+        row.classList.toggle('hidden');
+    });
+
+
+    if (expandButton) {
+        expandButton.textContent = isExpanded ? '▶' : '▼';
+    }
+}
+
+
+    function groupTasksByIssue(tasks) {
+    console.log("Début de groupTasksByIssue avec", tasks.length, "tâches");
+    
+    const issueGroups = {};
+
+
+    // Première passe : créer les groupes d'issues (IK)
+    tasks.forEach(task => {
+        if (task && task.Key && task.Key.startsWith('IK-')) {
+            issueGroups[task.Key] = {
+                ...task,
+                actions: []
+            };
+        }
+    });
+
+
+    // Deuxième passe : associer les tâches (VK) aux issues (IK)
+    tasks.forEach(task => {
+        if (task && task.Key && task.Key.startsWith('VK-')) {
+            // Chercher l'issue parent dans la colonne Issue
+            const parentIssueKey = task.Issue;
+            if (issueGroups[parentIssueKey]) {
+                issueGroups[parentIssueKey].actions.push(task);
+            } else {
+                console.log("Tâche orpheline trouvée:", task.Key, "pour l'issue", parentIssueKey);
+            }
+        }
+    });
+
+
+    console.log("Groupes d'issues créés:", Object.keys(issueGroups).length);
+    return Object.values(issueGroups);
+}
+
+
+    function getIssueStatus(tasks) {
+    const statuses = tasks.map(task => task.Status);
+    if (statuses.every(status => status === 'DONE')) {
+        return 'DONE';
+    } else if (statuses.some(status => status === 'IN PROGRESS' || status === 'DONE')) {
+        return 'IN PROGRESS';
+    } else {
+        return 'TO DO';
+    }
+}
+    function getLatestDueDate(tasks) {
+    return tasks.reduce((latest, task) => {
+        const taskDate = new Date(task.DueDate);
+        return taskDate > latest ? taskDate : latest;
+    }, new Date(0));
+}
+
+
+    function toggleTasks(issueIndex) {
+        console.log("Toggling tasks for issue index:", issueIndex);
+        const taskRows = document.querySelectorAll(`.task-row[data-issue-index="${issueIndex}"]`);
+        const expandButton = document.querySelector(`.issue-row[data-issue-index="${issueIndex}"] .expand-button`);
+        
+        console.log("Number of task rows found:", taskRows.length);
+        
+        if (taskRows.length === 0) {
+            console.warn("No task rows found for this issue");
+            return;
+        }
+
+
+        let isExpanded = !taskRows[0].classList.contains('hidden');
+        console.log("Current state:", isExpanded ? "expanded" : "collapsed");
+        
+        taskRows.forEach(row => {
+            row.classList.toggle('hidden');
+            console.log("Toggled hidden class for row:", row.querySelector('td:first-child').textContent);
+        });
+
+
+        if (expandButton) {
+            expandButton.textContent = isExpanded ? '▼' : '▶';
+            console.log("Changed expand button to:", expandButton.textContent);
+        } else {
+            console.warn("Expand button not found");
+        }
+    }
+
+
+function addEventListeners() {
+  document.querySelectorAll('.expand-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const issueIndex = this.closest('tr').dataset.issueIndex;
+      toggleTasks(issueIndex);
+    });
+  });
+
+
+  document.querySelectorAll('.edit-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const key = this.getAttribute('data-key');
+      openTaskModal(key);
+    });
+  });
+
+
+  document.querySelectorAll('.comment-button').forEach(button => {
+    button.addEventListener('click', function() {
+      const key = this.getAttribute('data-key');
+      openCommentModal(key);
+    });
+  });
+
+
+  document.querySelectorAll('.editable-input, .editable-select').forEach(input => {
+    input.addEventListener('change', handleCellEdit);
+  });
+
+
+  document.querySelectorAll('.assignee-select').forEach(select => {
+    select.addEventListener('change', handleAssigneeChange);
+  });
+}
+
+
+function handleCellEdit(event) {
+  const key = event.target.dataset.key;
+  const field = event.target.dataset.field;
+  const newValue = event.target.value;
+
+
+  updateCellValue(key, field, newValue);
+}
+
+
+function handleAssigneeChange(event) {
+  const select = event.target;
+  const key = select.dataset.key;
+  const newAssignee = select.value;
+
+
+  if (newAssignee === 'new') {
+    const newAssigneeName = prompt("Enter the name of the new assignee:");
+    if (newAssigneeName) {
+      const option = new Option(newAssigneeName, newAssigneeName);
+      select.add(option, select.options.length - 1);
+      select.value = newAssigneeName;
+      updateCellValue(key, 'Assignee', newAssigneeName);
+    } else {
+      select.value = select.querySelector('option:checked').value;
+    }
+  } else {
+    updateCellValue(key, 'Assignee', newAssignee);
+  }
+}
+
+
+function updateCellValue(key, field, newValue) {
+  google.script.run
+    .withSuccessHandler(response => {
+      onUpdateSuccess(response);
+      if (field === 'Assignee') {
+        updateAssigneeLists(newValue);
+      }
+    })
+    .withFailureHandler(onUpdateFailure)
+    .updateCellValue(key, field, newValue);
+}
+
+
+function updateAssigneeLists(newAssignee) {
+  const assigneeSelects = document.querySelectorAll('.assignee-select');
+  assigneeSelects.forEach(select => {
+    if (!select.querySelector(`option[value="${newAssignee}"]`)) {
+      const option = new Option(newAssignee, newAssignee);
+      select.add(option, select.options.length - 1);
+    }
+  });
+}
+
+
+function onUpdateSuccess(response) {
+  console.log('Mise à jour réussie:', response);
+  // Vous pouvez ajouter ici une notification visuelle de succès
+}
+
+
+function onUpdateFailure(error) {
+  console.error('Erreur lors de la mise à jour:', error);
+  // Vous pouvez ajouter ici une notification visuelle d'erreur
+}
+
+
+    function openTaskModal(key = null) {
+        console.log("Ouverture de la modale de tâche avec la clé:", key);
+        const modal = document.getElementById('taskModal');
+        const form = document.getElementById('taskForm');
+        const title = document.getElementById('modalTitle');
+
+
+        if (!modal || !form || !title) {
+            console.error("Éléments de la modale manquants");
+            return;
+        }
+
+
+        modal.classList.remove('hidden');
+        modal.classList.add('show');
+
+
+        initCategoryField();
+        initAssigneeField();
+
+
+        if (key) {
+            const task = allData.find(item => item.Key === key);
+            if (task) {
+                console.log("Tâche trouvée:", task);
+                title.textContent = translations['editTask'] || 'Edit Task';
+                fillTaskForm(task);
+            } else {
+                console.error("Tâche non trouvée pour la clé:", key);
+            }
+        } else {
+            console.log("Création d'une nouvelle tâche");
+            title.textContent = translations['addTask'] || 'Add Task';
+            form.reset();
+            document.getElementById('editSubmitter').value = currentUser;
+            document.getElementById('editUniqueID').value = '';
+        }
+
+
+        updateModalTexts();
+    }
+
+
+    function fillTaskForm(task) {
+        console.log("Remplissage du formulaire avec la tâche:", task);
+        
+        const setValueIfExists = (id, value) => {
+            const element = document.getElementById(id);
+            if (element) {
+                if (id === 'editLink') {
+                    element.value = value || '';
+                } else if (element.tagName === 'SELECT') {
+                    let option = Array.from(element.options).find(opt => opt.value === value);
+                    if (!option) {
+                        option = new Option(value, value);
+                        element.add(option);
+                    }
+                    element.value = value;
+                } else {
+                    element.value = value || '';
+                }
+                console.log(`Champ ${id} rempli:`, element.value);
+            } else {
+                console.warn(`L'élément avec l'ID ${id} n'existe pas dans le DOM`);
+            }
+        };
+
+
+        setValueIfExists('editKey', task.Key);
+        setValueIfExists('editIssue', task.Issue);
+        setValueIfExists('editAction', task.Action);
+        setValueIfExists('editStatus', task.Status);
+        setValueIfExists('editCategory', task.Category);
+        setValueIfExists('editAssignee', task.Assignee);
+        setValueIfExists('editDueDate', task.DueDate ? new Date(task.DueDate).toISOString().split('T')[0] : '');
+        setValueIfExists('editAreaLine', task.AreaLine);
+        setValueIfExists('editPriority', task.Priority || 'MEDIUM');
+        setValueIfExists('editTags', Array.isArray(task.Tags) ? task.Tags.join(', ') : (task.Tags || ''));
+        setValueIfExists('editSubmitter', task.Submitter);
+        setValueIfExists('editSubmissionDate', task.SubmissionDate ? new Date(task.SubmissionDate).toISOString().split('T')[0] : '');
+        setValueIfExists('editUniqueID', task.UniqueID);
+        setValueIfExists('editLink', task.Link);
+        setValueIfExists('editHistory', JSON.stringify(task.History || []));
+        setValueIfExists('editSubTasks', JSON.stringify(task.SubTasks || []));
+        setValueIfExists('editRealEndDate', task.RealEndDate ? new Date(task.RealEndDate).toISOString().split('T')[0] : '');
+        setValueIfExists('editLastUpdated', task.LastUpdated ? new Date(task.LastUpdated).toISOString().split('T')[0] : '');
+
+
+        const commentContainer = document.getElementById('commentContainer');
+        if (commentContainer) {
+            if (task.Comments) {
+                let comments;
+                try {
+                    comments = typeof task.Comments === 'string' ? JSON.parse(task.Comments) : task.Comments;
+                } catch (e) {
+                    console.error("Erreur lors du parsing des commentaires:", e);
+                    comments = [];
+                }
+                
+                if (Array.isArray(comments) && comments.length > 0) {
+                    commentContainer.innerHTML = comments.map(comment => `
+                        <div class="bg-gray-100 p-2 mb-2 rounded">
+                            <p class="font-bold">${comment.author || 'Anonyme'}</p>
+                            <p>${comment.text || ''}</p>
+                            <p class="text-sm text-gray-500">${comment.date ? new Date(comment.date).toLocaleString() : 'Date inconnue'}</p>
+                        </div>
+                    `).join('');
+                } else {
+                    commentContainer.innerHTML = '<p>No comments</p>';
+                }
+            } else {
+                commentContainer.innerHTML = '<p>No comments</p>';
+            }
+        }
+
+
+        console.log("Formulaire rempli avec succès");
+    }
+
+
+    function closeTaskModal() {
+        const modal = document.getElementById('taskModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('show');
+        }
+    }
+
+
+    function handleTaskFormSubmit(e) {
+        e.preventDefault();
+        console.log("Formulaire soumis");
+
+
+        const taskData = getFormData();
+        if (!taskData) {
+            showMessage('Erreur lors de la récupération des données du formulaire', 'error');
+            return;
+        }
+
+
+        console.log("Données de la tâche collectées:", taskData);
+
+
+        if (validateTaskData(taskData)) {
+            saveTask(taskData);
+        } else {
+            showMessage('Veuillez remplir tous les champs obligatoires', 'error');
+        }
+    }
+
+
+    function validateTaskData(taskData) {
+        const requiredFields = ['Action', 'Status', 'Category', 'Assignee', 'DueDate'];
+        for (const field of requiredFields) {
+            if (!taskData[field]) {
+                console.error(`Champ requis manquant: ${field}`);
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+    function updateTask(taskData) {
+    console.log("Updating task:", taskData);
+    google.script.run
+        .withSuccessHandler(function(response) {
+            console.log("Server response:", response);
+            var result = JSON.parse(response);
+            if (result.success) {
+                loadData(); // Recharge toutes les données
+                closeTaskModal(); // Ferme la modal d'édition
+                showMessage('Tâche mise à jour avec succès', 'success');
+            } else {
+                showMessage('Erreur lors de la mise à jour : ' + result.message, 'error');
+            }
+        })
+        .withFailureHandler(function(error) {
+            console.error("Error updating task:", error);
+            showMessage('Erreur lors de la mise à jour : ' + error, 'error');
+        })
+        .updateAction(JSON.stringify(taskData));
+}
+
+
+    function getChanges(oldData, newData) {
+        const changes = [];
+        for (const key in newData) {
+            if (JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])) {
+                changes.push({
+                    field: key,
+                    oldValue: oldData[key],
+                    newValue: newData[key]
+                });
+            }
+        }
+        return changes;
+    }
+
+
+    function openCommentModal(key) {
+        const modal = document.getElementById('commentModal');
+        const commentList = document.getElementById('commentList');
+        const task = allData.find(item => item.Key === key);
+
+
+        commentList.innerHTML = '';
+        if (task.Comments) {
+            task.Comments.forEach(comment => {
+                const commentDiv = document.createElement('div');
+                commentDiv.className = 'bg-gray-100 p-2 mb-2 rounded';
+                commentDiv.innerHTML = `
+                    <p class="font-bold">${comment.author}</p>
+                    <p>${comment.text}</p>
+                    <p class="text-sm text-gray-500">${new Date(comment.date).toLocaleString()}</p>
+                `;
+                commentList.appendChild(commentDiv);
+            });
+        }
+
+
+        document.getElementById('commentForm').dataset.taskKey = key;
+        modal.classList.remove('hidden');
+    }
+
+
+    function closeCommentModal() {
+        document.getElementById('commentModal').classList.add('hidden');
+    }
+
+
+    function handleCommentFormSubmit(e) {
+        e.preventDefault();
+        const taskKey = e.target.dataset.taskKey;
+        const commentText = document.getElementById('newComment').value;
+       
+        if (commentText.trim() === '') {
+            showMessage('Le commentaire ne peut pas être vide', 'error');
+            return;
+        }
+
+
+        google.script.run
+            .withSuccessHandler(() => {
+                loadData();
+                document.getElementById('newComment').value = '';
+                showMessage('Commentaire ajouté avec succès', 'success');
+                openCommentModal(taskKey);
+            })
+            .withFailureHandler(handleError)
+            .addComment(taskKey, commentText);
+    }
+
+
+    function saveTask(taskData) {
+        console.log("Saving task:", taskData);
+        
+        if (taskData.UniqueID) {
+            updateTask(taskData);
+        } else {
+            addTask(taskData);
+        }
+    }
+
+
+    function saveCustomView() {
+        const viewName = prompt("Nom de la vue personnalisée :");
+        if (viewName) {
+            customViews[viewName] = {
+                filters: {
+                    search: document.getElementById('search').value,
+                    status: Array.from(document.getElementById('statusFilter').selectedOptions).map(option => option.value),
+                    category: document.getElementById('categoryFilter').value,
+                    assignee: document.getElementById('assigneeFilter').value,
+                    date: document.getElementById('dateFilter').value,
+                    priority: document.getElementById('priorityFilter').value,
+                    tag: document.getElementById('tagFilter').value
+                },
+            };
+            updateCustomViewDropdown();
+            showMessage('Vue personnalisée sauvegardée', 'success');
+        }
+    }
+
+
+    function loadCustomView() {
+        const viewName = document.getElementById('loadCustomView').value;
+        if (viewName && customViews[viewName]) {
+            const view = customViews[viewName];
+            document.getElementById('search').value = view.filters.search;
+            document.getElementById('statusFilter').value = view.filters.status;
+            document.getElementById('categoryFilter').value = view.filters.category;
+            document.getElementById('assigneeFilter').value = view.filters.assignee;
+            document.getElementById('dateFilter').value = view.filters.date;
+            document.getElementById('priorityFilter').value = view.filters.priority;
+            document.getElementById('tagFilter').value = view.filters.tag;
+            updateView();
+            showMessage('Vue personnalisée chargée', 'success');
+        }
+    }
+
+
+    function updateCustomViewDropdown() {
+        const dropdown = document.getElementById('loadCustomView');
+        dropdown.innerHTML = '<option value="">Charger une vue</option>';
+        Object.keys(customViews).forEach(viewName => {
+            const option = document.createElement('option');
+            option.value = viewName;
+            option.textContent = viewName;
+            dropdown.appendChild(option);
+        });
+    }
+
+
+    function exportCSV() {
+        const filteredData = filterData();
+        let csv = 'Key,Action,Status,Category,Assignee,Due Date,Priority,Tags\n';
+        filteredData.forEach(item => {
+            csv += `${item.Key},"${item.Action}",${item.Status},${item.Category},${item.Assignee},${item.DueDate},${item.Priority},"${(item.Tags || []).join(', ')}"\n`;
+        });
+        downloadFile(csv, 'tasks.csv', 'text/csv;charset=utf-8;');
+        showMessage(translations['csvExported'] || 'CSV exported successfully', 'success');
+    }
+
+
+    function exportPDF() {
+        google.script.run
+            .withSuccessHandler((url) => {
+                window.open(url, '_blank');
+            })
+            .withFailureHandler(handleError)
+            .exportToPDF(getFilters());
+    }
+
+
+    function downloadFile(content, fileName, mimeType) {
+        const blob = new Blob([content], { type: mimeType });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = fileName;
+        link.click();
+    }
+
+
+    function createStatusChart(data, title) {
+        const ctx = document.getElementById('statusChart').getContext('2d');
+       
+        // Détruire le graphique existant s'il y en a un
+        if (window.statusChart instanceof Chart) {
+            window.statusChart.destroy();
+        }
+
+
+        const statusCounts = {};
+        const statusTranslations = {
+            'TO DO': translations[currentLanguage]?.toDo || 'To Do',
+            'IN PROGRESS': translations[currentLanguage]?.inProgress || 'In Progress',
+            'DONE': translations[currentLanguage]?.done || 'Done',
+            'LATE': translations[currentLanguage]?.late || 'Late'
+        };
+
+
+        data.forEach(item => {
+            statusCounts[item.Status] = (statusCounts[item.Status] || 0) + 1;
+        });
+
+
+        const labels = Object.keys(statusCounts).map(status => statusTranslations[status] || status);
+
+
+        window.statusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: Object.values(statusCounts),
+                    backgroundColor: ['#FEF3C7', '#DBEAFE', '#D1FAE5', '#FEE2E2']
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { position: 'right' },
+                    title: {
+                        display: true,
+                        text: title,
+                        font: { size: 16 }
+                    }
+                }
+            }
+        });
+    }
+
+
+    function createCategoryChart(data, title) {
+        const ctx = document.getElementById('categoryChart').getContext('2d');
+       
+        // Détruire le graphique existant s'il y en a un
+        if (window.categoryChart instanceof Chart) {
+            window.categoryChart.destroy();
+        }
+
+
+        const categoryCounts = {};
+        data.forEach(item => {
+            categoryCounts[item.Category] = (categoryCounts[item.Category] || 0) + 1;
+        });
+
+
+        const numberOfTasksLabel = translations[currentLanguage]?.numberOfTasks || 'Number of tasks';
+
+
+        window.categoryChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(categoryCounts),
+                datasets: [{
+                    label: numberOfTasksLabel,
+                    data: Object.values(categoryCounts),
+                    backgroundColor: 'rgba(54, 162, 235, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: title,
+                        font: { size: 16 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: numberOfTasksLabel
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+    function createProductivityChart(data, title) {
+        const ctx = document.getElementById('productivityChart').getContext('2d');
+       
+        // Détruire le graphique existant s'il y en a un
+        if (window.productivityChart instanceof Chart) {
+            window.productivityChart.destroy();
+        }
+
+
+        const productivityData = {};
+        data.forEach(item => {
+            if (item.Status === 'DONE') {
+                productivityData[item.Assignee] = (productivityData[item.Assignee] || 0) + 1;
+            }
+        });
+
+
+        const completedTasksLabel = translations[currentLanguage]?.completedTasks || 'Completed tasks';
+
+
+        window.productivityChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(productivityData),
+                datasets: [{
+                    label: completedTasksLabel,
+                    data: Object.values(productivityData),
+                    backgroundColor: 'rgba(75, 192, 192, 0.8)'
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: { display: false },
+                    title: {
+                        display: true,
+                        text: title,
+                        font: { size: 16 }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: completedTasksLabel
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+
+    function showMessage(message, type) {
+        const container = document.getElementById('message-container');
+        if (!container) {
+            console.error("Message container not found");
+            alert(message);
+            return;
+        }
+        container.innerHTML = `<div class="p-4 ${type === 'error' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'} rounded-md">${message}</div>`;
+        setTimeout(() => container.innerHTML = '', 5000);
+    }
+
+
+    function clearFilters() {
+        const searchInput = document.getElementById('search');
+        if (searchInput) searchInput.value = '';
+
+
+        document.querySelectorAll('.custom-select input[type="checkbox"]').forEach(cb => {
+            cb.checked = false;
+            if (cb.closest('.custom-select')) {
+                updateSelectedText(cb.closest('.custom-select'));
+            }
+        });
+
+
+        const startDateFilter = document.getElementById('startDateFilter');
+        if (startDateFilter) startDateFilter.value = '';
+
+
+        const endDateFilter = document.getElementById('endDateFilter');
+        if (endDateFilter) endDateFilter.value = '';
+
+
+        const priorityFilter = document.getElementById('priorityFilter');
+        if (priorityFilter) priorityFilter.value = '';
+
+
+        const tagFilter = document.getElementById('tagFilter');
+        if (tagFilter) tagFilter.value = '';
+
+
+        // Assurez-vous que le filtre AreaLine est également réinitialisé
+        const areaLineFilter = document.getElementById('areaLineFilter');
+        if (areaLineFilter) {
+            areaLineFilter.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                cb.checked = false;
+            });
+            updateSelectedText(areaLineFilter);
+        }
+
+
+        updateView();
+        saveFilters();
+    }
+
+
+    function initFlatpickr() {
+        flatpickr("#startDateFilter", {
+            dateFormat: "Y-m-d",
+            onChange: function(selectedDates, dateStr, instance) {
+                instance.element.dispatchEvent(new Event('change'));
+            }
+        });
+        flatpickr("#endDateFilter", {
+            dateFormat: "Y-m-d",
+            onChange: function(selectedDates, dateStr, instance) {
+                instance.element.dispatchEvent(new Event('change'));
+            }
+        });
+    }
+
+
+    function drag(ev) {
+        ev.dataTransfer.setData("text", ev.target.dataset.key);
+    }
+
+
+    function allowDrop(ev) {
+        ev.preventDefault();
+    }
+
+
+    function drop(ev) {
+        ev.preventDefault();
+        const key = ev.dataTransfer.getData("text");
+        const newStatus = ev.target.closest('.kanban-column').id.split('-')[0].toUpperCase();
+        updateTaskStatus(key, newStatus);
+    }
+
+
+    function updateTaskStatus(key, newStatus) {
+        const task = allData.find(item => item.Key === key);
+        if (task) {
+            task.Status = newStatus;
+            google.script.run
+                .withSuccessHandler(() => {
+                    loadData();
+                    showMessage('Statut de la tâche mis à jour', 'success');
+                })
+                .withFailureHandler(handleError)
+                .updateAction(task);
+        }
+    }
+
+
+    function sortData(column) {
+        console.log("Tri des données par la colonne:", column);
+        let sortOrder = 1; // 1 pour ascendant, -1 pour descendant
+        
+        if (lastSortedColumn === column) {
+            sortOrder = -lastSortOrder; // Inverser l'ordre si on clique à nouveau sur la même colonne
+        }
+        
+        lastSortedColumn = column;
+        lastSortOrder = sortOrder;
+
+
+        allData.sort((a, b) => {
+            let valueA = a[column];
+            let valueB = b[column];
+
+
+            if (column === 'DueDate') {
+                valueA = new Date(valueA);
+                valueB = new Date(valueB);
+                
+                // Gérer les tâches en retard et à faire
+                if (a.Status === 'LATE' && b.Status !== 'LATE') return -1 * sortOrder;
+                if (a.Status !== 'LATE' && b.Status === 'LATE') return 1 * sortOrder;
+                if (a.Status === 'TO DO' && b.Status !== 'TO DO') return -1 * sortOrder;
+                if (a.Status !== 'TO DO' && b.Status === 'TO DO') return 1 * sortOrder;
+            }
+
+
+            if (valueA < valueB) return -1 * sortOrder;
+            if (valueA > valueB) return 1 * sortOrder;
+            return 0;
+        });
+
+
+        currentPage = 1; // Réinitialiser à la première page après le tri
+        updateView(); // Mettre à jour la vue après le tri
+    }
+
+
+    function updateFilters() {
+        if (!allData || allData.length === 0) {
+            console.log("No data available to update filters");
+            return;
+        }
+
+
+        const filters = {
+            status: [...new Set(allData.map(item => item.Status))],
+            category: [...new Set(allData.map(item => item.Category))],
+            assignee: [...new Set(allData.map(item => item.Assignee))],
+            areaLine: [...new Set(allData.map(item => item['Area/Line'] || item.AreaLine))],
+            issue: [...new Set(allData.map(item => item.Issue))]
+        };
+        
+        Object.keys(filters).forEach(filterType => {
+            const filterContainer = document.getElementById(`${filterType}Filter`);
+            if (!filterContainer) {
+                console.log(`Filter container for ${filterType} not found`);
+                return;
+            }
+            const optionsContainer = filterContainer.querySelector('.dropdown-options');
+            
+            // Garder les options existantes et leur état
+            const existingOptions = Array.from(optionsContainer.querySelectorAll('input[type="checkbox"]'))
+                .reduce((acc, checkbox) => {
+                    acc[checkbox.value] = checkbox.checked;
+                    return acc;
+                }, {});
+
+
+            optionsContainer.innerHTML = '';
+            
+            filters[filterType].forEach(option => {
+                if (option) {  // Vérifier que l'option n'est pas null ou undefined
+                    const optionElement = document.createElement('div');
+                    optionElement.className = 'dropdown-option';
+                    const isChecked = option in existingOptions ? existingOptions[option] : false;
+                    optionElement.innerHTML = `
+                        <label>
+                            <input type="checkbox" value="${option}" ${isChecked ? 'checked' : ''}> ${option}
+                        </label>
+                    `;
+                    optionsContainer.appendChild(optionElement);
+                }
+            });
+
+
+            updateSelectedText(filterContainer);
+        });
+    }
+
+
+    function toggleDropdown(e) {
+        e.stopPropagation();
+        closeAllSelect(this);
+        this.nextElementSibling.classList.toggle('select-hide');
+        this.classList.toggle('select-arrow-active');
+    }
+
+
+    function closeAllSelect(elmnt) {
+        const selectItems = document.getElementsByClassName('select-items');
+        const selectSelected = document.getElementsByClassName('select-selected');
+        for (let i = 0; i < selectSelected.length; i++) {
+            if (elmnt !== selectSelected[i]) {
+                selectSelected[i].classList.remove('select-arrow-active');
+            }
+        }
+        for (let i = 0; i < selectItems.length; i++) {
+            if (elmnt !== selectSelected[i]) {
+                selectItems[i].classList.add('select-hide');
+            }
+        }
+    }
+
+
+    function updateSelectFilter(filterId, options, defaultText) {
+        const filterContainer = document.getElementById(filterId);
+        if (!filterContainer) {
+            console.log(`Élément ${filterId} non trouvé`);
+            return;
+        }
+
+
+        const selectItems = filterContainer.querySelector('.select-items');
+        const selectSelected = filterContainer.querySelector('.select-selected');
+
+
+        if (selectItems && selectSelected) {
+            selectItems.innerHTML = `
+                <input type="text" class="filter-search" placeholder="Search...">
+                <div class="options-container">
+                    ${options.map(option =>
+                        `<label><input type="checkbox" value="${option}"> ${option}</label>`
+                    ).join('')}
+                </div>
+            `;
+
+
+            selectSelected.textContent = defaultText;
+            selectSelected.setAttribute('data-default', defaultText);
+
+
+            // Ajouter l'écouteur d'événements pour la recherche
+            const searchInput = selectItems.querySelector('.filter-search');
+            searchInput.addEventListener('input', function() {
+                filterOptions(this, filterId);
+            });
+        } else {
+            console.log(`Éléments select-items ou select-selected non trouvés dans ${filterId}`);
+        }
+    }
+
+
+    function updateViewAndSaveFilters() {
+        updateView();
+        saveFilters();
+    }
+
+
+    function updateSelectedText(filter) {
+        const button = filter.querySelector('.select-button');
+        const checkedOptions = filter.querySelectorAll('input[type="checkbox"]:checked');
+        button.textContent = checkedOptions.length > 0 ? `${checkedOptions.length} selected` : filter.id.replace('Filter', '');
+    }
+
+
+    // Fermer les listes déroulantes si on clique en dehors
+    document.addEventListener('click', closeAllSelect);
+
+
+    function formatDate(dateString) {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+}
+
+
+    function applyFilters() {
+        const statusFilters = Array.from(document.querySelectorAll('#statusFilter input:checked')).map(cb => cb.value);
+        const categoryFilters = Array.from(document.querySelectorAll('#categoryFilter input:checked')).map(cb => cb.value);
+        const assigneeFilters = Array.from(document.querySelectorAll('#assigneeFilter input:checked')).map(cb => cb.value);
+        const dateFilter = document.getElementById('dateFilter')?.value || '';
+        const priorityFilter = document.getElementById('priorityFilter')?.value || '';
+        const tagFilter = document.getElementById('tagFilter')?.value.toLowerCase() || '';
+        const searchTerm = document.getElementById('search')?.value.toLowerCase() || '';
+
+
+        const filteredData = allData.filter(item => {
+            const matchesStatus = statusFilters.length === 0 || statusFilters.includes(item.Status);
+            const matchesCategory = categoryFilters.length === 0 || categoryFilters.includes(item.Category);
+            const matchesAssignee = assigneeFilters.length === 0 || assigneeFilters.includes(item.Assignee);
+            const matchesDate = !dateFilter || (item.DueDate && new Date(item.DueDate).toISOString().split('T')[0] === dateFilter);
+            const matchesPriority = !priorityFilter || item.Priority === priorityFilter;
+            const matchesTag = !tagFilter || (item.Tags && item.Tags.some(tag => tag.toLowerCase().includes(tagFilter)));
+            const matchesSearch = !searchTerm || 
+                (item.Action && item.Action.toLowerCase().includes(searchTerm)) || 
+                (item.Key && item.Key.toLowerCase().includes(searchTerm));
+
+
+            return matchesStatus && matchesCategory && matchesAssignee && 
+                   matchesDate && matchesPriority && matchesTag && matchesSearch;
+        });
+
+
+        displayFilteredData(filteredData);
+        updateView();
+        saveFilters();
+    }
+
+
+    function displayFilteredData(filteredData) {
+        switch (currentView) {
+            case 'list':
+                displayListView(filteredData);
+                break;
+            case 'kanban':
+                displayKanbanView(filteredData);
+                break;
+            case 'dashboard':
+                displayDashboardView(filteredData);
+                break;
+            case 'custom':
+                displayCustomView(filteredData);
+                break;
+        }
+    }
+
+
+    function getFilters() {
+        return {
+            globalSearch: document.getElementById('globalSearch')?.value || '',
+            search: document.getElementById('search')?.value || '',
+            status: Array.from(document.querySelectorAll('#statusFilter input:checked')).map(cb => cb.value),
+            category: Array.from(document.querySelectorAll('#categoryFilter input:checked')).map(cb => cb.value),
+            assignee: Array.from(document.querySelectorAll('#assigneeFilter input:checked')).map(cb => cb.value),
+            startDate: document.getElementById('startDateFilter')?.value || '',
+            endDate: document.getElementById('endDateFilter')?.value || '',
+            priority: document.getElementById('priorityFilter')?.value || '',
+            tag: document.getElementById('tagFilter')?.value || ''
+        };
+    }
+
+
+    function initCategoryField() {
+        const categoryField = document.getElementById('editCategory');
+        if (!categoryField) return;
+
+
+        const categories = ["", ...new Set(allData.map(item => item.Category))];
+        
+        let html = `<select id="editCategory" name="Category" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+            <option value="">Select a category</option>
+            ${categories.map(category => `<option value="${category}">${category}</option>`).join('')}
+            <option value="new">Add a new category</option>
+        </select>`;
+
+
+        categoryField.outerHTML = html;
+
+
+        document.getElementById('editCategory').addEventListener('change', function() {
+            if (this.value === 'new') {
+                const newCategory = prompt("Enter the new category name :");
+                if (newCategory) {
+                    const option = new Option(newCategory, newCategory);
+                    this.add(option, this.options.length - 1);
+                    this.value = newCategory;
+                } else {
+                    this.value = '';
+                }
+            }
+        });
+    }
+
+
+    function initAssigneeField() {
+        const assigneeField = document.getElementById('editAssignee');
+        if (!assigneeField) return;
+
+
+        const assignees = ["", ...new Set(allData.map(item => item.Assignee))];
+        
+        let html = `<select id="editAssignee" name="Assignee" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+            <option value="">Select an assignee</option>
+            ${assignees.map(assignee => `<option value="${assignee}">${assignee}</option>`).join('')}
+            <option value="new">Add a new assignee</option>
+        </select>`;
+
+
+        assigneeField.outerHTML = html;
+
+
+        document.getElementById('editAssignee').addEventListener('change', function() {
+            if (this.value === 'new') {
+                const newAssignee = prompt("Enter the new assignee name:");
+                if (newAssignee) {
+                    const option = new Option(newAssignee, newAssignee);
+                    this.add(option, this.options.length - 1);
+                    this.value = newAssignee;
+                } else {
+                    this.value = '';
+                }
+            }
+        });
+    }
+
+
+    function getFormData() {
+        console.log("Début de getFormData()");
+        
+        const form = document.getElementById('taskForm');
+        if (!form) {
+            console.error("Le formulaire 'taskForm' n'a pas été trouvé");
+            return null;
+        }
+
+
+        const formData = new FormData(form);
+        let taskData = Object.fromEntries(formData.entries());
+
+
+        console.log("Données brutes du formulaire:", taskData);
+
+
+        const fields = ['Key', 'Issue', 'Action', 'Status', 'Category', 'Assignee', 'DueDate', 'AreaLine', 'Priority', 'RealEndDate', 'Submitter', 'SubmissionDate', 'UniqueID', 'Tags', 'Link', 'LastUpdated'];
+        
+        fields.forEach(field => {
+            const element = document.getElementById('edit' + field);
+            if (element) {
+                if (field === 'Link') {
+                    taskData[field] = element.value.trim() || null;
+                } else {
+                    taskData[field] = element.value;
+                }
+                console.log(`${field} récupéré manuellement:`, taskData[field]);
+            } else {
+                console.warn(`Élément de ${field} non trouvé`);
+                taskData[field] = taskData[field] || '';
+            }
+        });
+
+
+        const commentContainer = document.getElementById('commentContainer');
+        taskData.Comments = commentContainer ? commentContainer.innerHTML : '';
+
+
+        const historyElement = document.getElementById('editHistory');
+        if (historyElement) {
+            taskData.History = JSON.parse(historyElement.value || '[]');
+        } else {
+            console.warn("Élément 'editHistory' non trouvé");
+            taskData.History = [];
+        }
+
+
+        const subTasksElement = document.getElementById('editSubTasks');
+        if (subTasksElement) {
+            taskData.SubTasks = JSON.parse(subTasksElement.value || '[]');
+        } else {
+            console.warn("Élément 'editSubTasks' non trouvé");
+            taskData.SubTasks = [];
+        }
+
+
+        const dateFields = ['DueDate', 'SubmissionDate', 'LastUpdated', 'RealEndDate'];
+        dateFields.forEach(field => {
+            if (taskData[field]) {
+                taskData[field] = new Date(taskData[field]).toISOString();
+            }
+        });
+
+
+        taskData.Tags = taskData.Tags ? taskData.Tags.split(',').map(tag => tag.trim()).filter(tag => tag !== '') : [];
+
+
+        console.log("Données traitées :", taskData);
+
+
+        return taskData;
+    }
+
+
+    function handleStatusChange() {
+        const statusSelect = document.getElementById('editStatus');
+        const oldStatusInput = document.getElementById('editOldStatus');
+        const realEndDateInput = document.getElementById('editRealEndDate');
+
+
+        if (statusSelect.value === 'DONE' && oldStatusInput.value !== 'DONE') {
+            realEndDateInput.value = new Date().toISOString().split('T')[0];
+        }
+
+
+        oldStatusInput.value = statusSelect.value;
+    }
+
+
+    function validateTaskData(taskData) {
+        const requiredFields = ['Action', 'Status', 'Category', 'Assignee', 'DueDate'];
+        for (const field of requiredFields) {
+            if (!taskData[field]) {
+                console.error(`Required data missing: ${field}`);
+                return false;
+            }
+        }
+
+
+        // Validation spécifique pour le champ Link
+        if (taskData.Link && !isValidUrl(taskData.Link)) {
+            console.error("The URL is not a valid link");
+            return false;
+        }
+
+
+        return true;
+    }
+
+
+    function isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+
+    function validateForm() {
+        const form = document.getElementById('taskForm');
+        const requiredFields = ['editAction', 'editStatus', 'editCategory', 'editAssignee', 'editDueDate'];
+        const saveButton = form.querySelector('button[type="submit"]');
+
+
+        if (!saveButton) {
+            console.warn("Bouton de sauvegarde non trouvé dans le formulaire");
+            return;
+        }
+
+
+        const isValid = requiredFields.every(fieldId => {
+            const field = document.getElementById(fieldId);
+            return field && field.value.trim() !== '';
+        });
+
+
+        saveButton.disabled = !isValid;
+    }
+
+
+    function getFilterOptions(filterType) {
+        // This function should return an array of options for each filter type
+        switch(filterType) {
+            case 'Status':
+                return [...new Set(allData.map(item => item.Status))];
+            case 'Category':
+                return [...new Set(allData.map(item => item.Category))];
+            case 'Assignee':
+                return [...new Set(allData.map(item => item.Assignee))];
+            default:
+                return [];
+        }
+    }
+
+
+    // Gestionnaire d'événements pour le bouton de paramètres
+    document.getElementById('settingsButton').addEventListener('click', function() {
+        document.getElementById('settingsMenu').classList.toggle('hidden');
+    });
+
+
+    // Gestionnaire d'événements pour le bouton d'ajout de source de données
+    document.getElementById('addDataSourceButton').addEventListener('click', function() {
+        document.getElementById('settingsMenu').classList.add('hidden');
+        document.getElementById('addDataSourceModal').classList.remove('hidden');
+    });
+
+
+    // Gestionnaire d'événements pour le bouton d'édition des sources de données
+    document.getElementById('editDataSourceButton').addEventListener('click', function() {
+        document.getElementById('settingsMenu').classList.add('hidden');
+        loadDataSources();
+        document.getElementById('editDataSourceModal').classList.remove('hidden');
+    });
+
+
+    // Fonction pour fermer la modale d'ajout de source de données
+    function closeAddDataSourceModal() {
+        document.getElementById('addDataSourceModal').classList.add('hidden');
+    }
+
+
+    // Fonction pour fermer la modale d'édition des sources de données
+    function closeEditDataSourceModal() {
+        document.getElementById('editDataSourceModal').classList.add('hidden');
+    }
+
+
+    // Fonction pour charger les sources de données existantes
+    function loadDataSources() {
+        google.script.run
+            .withSuccessHandler(function(dataSources) {
+                const dataSourceList = document.getElementById('dataSourceList');
+                dataSourceList.innerHTML = '';
+                dataSources.forEach(function(source, index) {
+                    const sourceElement = document.createElement('div');
+                    sourceElement.className = 'mb-2 p-2 border rounded';
+                    sourceElement.innerHTML = `
+                        <p><strong>Spreadsheet ID:</strong> ${source.spreadsheetId}</p>
+                        <p><strong>Sheet Name:</strong> ${source.sheetName}</p>
+                        <button onclick="editDataSource(${index})" class="bg-blue-500 text-white px-2 py-1 rounded-md hover:bg-blue-600 mr-2">Edit</button>
+                        <button onclick="deleteDataSource(${index})" class="bg-red-500 text-white px-2 py-1 rounded-md hover:bg-red-600">Delete</button>
+                    `;
+                    dataSourceList.appendChild(sourceElement);
+                });
+            })
+            .withFailureHandler(function(error) {
+                showMessage('Error loading data sources: ' + error, 'error');
+            })
+            .getDataSources();
+    }
+
+
+    function editDataSource(index) {
+        closeEditDataSourceModal(); // Ferme la modale d'édition des sources de données
+        
+        google.script.run
+            .withSuccessHandler(function(dataSource) {
+                // Créer une modale d'édition
+                const modal = document.createElement('div');
+                modal.id = 'editSpecificDataSourceModal';
+                modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center';
+                modal.style.zIndex = '1000'; // Assurez-vous que cette valeur est supérieure à celle des filtres
+                modal.innerHTML = `
+                    <div class="bg-white p-5 rounded-lg shadow-xl w-full max-w-md">
+                        <h3 class="text-lg font-medium leading-6 text-gray-900 mb-4">Edit Data Source</h3>
+                        <form id="editDataSourceForm">
+                            <input type="hidden" name="index" value="${index}">
+                            <div class="mb-4">
+                                <label for="editSpreadsheetId" class="block text-sm font-medium text-gray-700">Spreadsheet ID</label>
+                                <input type="text" id="editSpreadsheetId" name="spreadsheetId" value="${dataSource.spreadsheetId}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editSheetName" class="block text-sm font-medium text-gray-700">Sheet Name</label>
+                                <input type="text" id="editSheetName" name="sheetName" value="${dataSource.sheetName}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editActionColumn" class="block text-sm font-medium text-gray-700">Action Column</label>
+                                <input type="text" id="editActionColumn" name="actionColumn" value="${dataSource.actionColumn}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editAssigneeColumn" class="block text-sm font-medium text-gray-700">Assignee Column</label>
+                                <input type="text" id="editAssigneeColumn" name="assigneeColumn" value="${dataSource.assigneeColumn}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editDueDateColumn" class="block text-sm font-medium text-gray-700">Due Date Column</label>
+                                <input type="text" id="editDueDateColumn" name="dueDateColumn" value="${dataSource.dueDateColumn}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editAreaLineColumn" class="block text-sm font-medium text-gray-700">Area/Line Column</label>
+                                <input type="text" id="editAreaLineColumn" name="areaLineColumn" value="${dataSource.areaLineColumn}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editSubmitterColumn" class="block text-sm font-medium text-gray-700">Submitter Column</label>
+                                <input type="text" id="editSubmitterColumn" name="submitterColumn" value="${dataSource.submitterColumn}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editSubmissionDateColumn" class="block text-sm font-medium text-gray-700">Submission Date Column</label>
+                                <input type="text" id="editSubmissionDateColumn" name="submissionDateColumn" value="${dataSource.submissionDateColumn}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="mb-4">
+                                <label for="editTag" class="block text-sm font-medium text-gray-700">Tag</label>
+                                <input type="text" id="editTag" name="tag" value="${dataSource.tag}" class="mt-1 block w-full border-gray-300 rounded-md shadow-sm">
+                            </div>
+                            <div class="flex justify-end">
+                                <button type="submit" class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600">Update</button>
+                                <button type="button" onclick="closeEditSpecificDataSourceModal()" class="ml-2 bg-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-400">Cancel</button>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+
+
+                // Ajouter un gestionnaire d'événements pour le formulaire
+                document.getElementById('editDataSourceForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const formData = new FormData(e.target);
+                    const updatedDataSource = Object.fromEntries(formData.entries());
+                    
+                    google.script.run
+                        .withSuccessHandler(function() {
+                            closeEditSpecificDataSourceModal();
+                            loadDataSources();
+                            showMessage('Data source updated successfully', 'success');
+                        })
+                        .withFailureHandler(function(error) {
+                            showMessage('Error updating data source: ' + error, 'error');
+                        })
+                        .updateDataSource(updatedDataSource);
+                });
+            })
+            .withFailureHandler(function(error) {
+                showMessage('Error loading data source: ' + error, 'error');
+            })
+            .getDataSource(index);
+    }
+
+
+    function closeEditSpecificDataSourceModal() {
+        const modal = document.getElementById('editSpecificDataSourceModal');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+
+    function closeEditDataSourceModal() {
+        const modal = document.getElementById('editDataSourceModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+
+    function closeAllModals() {
+        closeEditDataSourceModal();
+        closeEditSpecificDataSourceModal();
+        closeAddDataSourceModal();
+    }
+
+
+    function closeEditModal() {
+        const modal = document.querySelector('.fixed.inset-0');
+        if (modal) {
+            modal.remove();
+        }
+    }
+
+
+    function deleteDataSource(index) {
+        if (confirm('Are you sure you want to delete this data source?')) {
+            google.script.run
+                .withSuccessHandler(function() {
+                    loadDataSources();
+                    showMessage('Data source deleted successfully', 'success');
+                })
+                .withFailureHandler(function(error) {
+                    showMessage('Error deleting data source: ' + error, 'error');
+                })
+                .deleteDataSource(index);
+        }
+    }
+
+
+    function getUniqueAssignees() {
+    return [...new Set(allData.map(item => item.Assignee))].filter(Boolean);
+}
+    </script>

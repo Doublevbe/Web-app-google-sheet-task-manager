@@ -1,0 +1,2596 @@
+﻿// Définition des variables pour les identifiants de spreadsheets
+var TARGET_SPREADSHEET_ID = '1YD7TuoqFxPwVCNjrs3XsLa6KlYhJuyh9wpJDU95w7AM';
+
+
+
+
+
+
+
+
+
+
+
+
+function doGet(e) {
+  try {
+    console.log("doGet called with parameters:", e.parameter);
+    console.log("Tentative de récupération des filtres pour l'utilisateur:", userEmail);
+
+
+
+
+    if (e.parameter.v === 'getData') {
+      console.log("Calling getData");
+      return ContentService.createTextOutput(getData()).setMimeType(ContentService.MimeType.JSON);
+    } else if (e.parameter.v === 'exportPDF') {
+      console.log("Calling exportToPDF");
+      return ContentService.createTextOutput(exportToPDF(e.parameter.filters)).setMimeType(ContentService.MimeType.JSON);
+    } else if (e.parameter.v === 'getTranslations') {
+      console.log("Calling getTranslations");
+      return ContentService.createTextOutput(JSON.stringify(getTranslations(e.parameter.language))).setMimeType(ContentService.MimeType.JSON);
+    }
+   
+    console.log("Returning default HTML");
+    var userFilters = getUserFilters(userEmail);
+    console.log("Filtres récupérés:", userFilters);
+    var template = HtmlService.createTemplateFromFile('Index');
+    var userEmail = getUserEmail();
+    template.userEmail = userEmail;
+    logUserConnection(userEmail);  // Ajout de cette ligne pour enregistrer la connexion
+    return template.evaluate()
+        .setTitle('Advanced Task Manager')
+        .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  } catch (error) {
+    console.error("Error in doGet:", error);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      message: "Server error: " + error.message
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+
+
+
+
+
+
+function saveUserFilters(email, filters) {
+  console.log("Début de saveUserFilters pour l'email:", email);
+  console.log("Filtres à sauvegarder:", filters);
+ 
+  // Utiliser setTimeout pour attendre 1 seconde avant la sauvegarde
+  Utilities.sleep(2000);
+ 
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var userFiltersSheet = ss.getSheetByName('UserFilters');
+   
+    if (!userFiltersSheet) {
+      console.log("La feuille UserFilters n'existe pas, création en cours...");
+      userFiltersSheet = ss.insertSheet('UserFilters');
+      userFiltersSheet.appendRow(['Email', 'LastUpdated', 'Filters']);
+    }
+   
+    var userData = userFiltersSheet.getDataRange().getValues();
+    var userRowIndex = userData.findIndex(row => row[0] === email);
+   
+    var currentDate = new Date();
+    var filtersJson = JSON.stringify(filters);
+   
+    if (userRowIndex === -1) {
+      console.log("Ajout d'un nouvel utilisateur");
+      userFiltersSheet.appendRow([email, currentDate, filtersJson]);
+    } else {
+      console.log("Mise à jour des filtres pour l'utilisateur existant");
+      userFiltersSheet.getRange(userRowIndex + 1, 2).setValue(currentDate);
+      userFiltersSheet.getRange(userRowIndex + 1, 3).setValue(filtersJson);
+    }
+   
+    console.log("Fin de saveUserFilters - Sauvegarde réussie");
+    return true;
+  } catch (error) {
+    console.error("Erreur lors de la sauvegarde des filtres :", error);
+    return false;
+  }
+}
+
+
+
+
+function normalizeFieldName(field) {
+  const normalized = field.trim().toLowerCase().replace(/\s+/g, '');
+  const specialCases = {
+    'duedate': 'due date',
+    'arealine': 'area/line',
+    'lastupdated': 'last updated',
+    'realenddate': 'real end date',
+    'submissiondate': 'submission date',
+    'uniqueid': 'unique id',
+    'issue/task': 'issue / task',
+    'comment': 'comment ',
+    'priority': 'priority '
+  };
+  return specialCases[normalized] || normalized;
+}
+
+
+
+
+
+
+
+
+function getUserFilters(email) {
+  console.log("Recherche des filtres pour l'email:", email);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('UserFilters');
+  if (!sheet) {
+    console.error("La feuille 'UserFilters' n'existe pas");
+    return null;
+  }
+ 
+  var data = sheet.getDataRange().getValues();
+  console.log("Données de la feuille UserFilters:", JSON.stringify(data));
+ 
+  var rowIndex = data.findIndex(row => row[0] === email);
+ 
+  if (rowIndex === -1) {
+    console.log("Aucun filtre trouvé pour l'utilisateur:", email);
+    return null;
+  }
+ 
+  var filters = data[rowIndex][2];
+  console.log("Filtres bruts récupérés:", filters);
+ 
+  try {
+    var parsedFilters = JSON.parse(filters);
+    console.log("Filtres parsés:", JSON.stringify(parsedFilters));
+    return parsedFilters;
+  } catch (e) {
+    console.error("Erreur lors du parsing des filtres:", e);
+    return null;
+  }
+}
+
+
+
+
+
+
+
+
+function logUserConnection(email) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('User connection history');
+  if (!sheet) {
+    sheet = SpreadsheetApp.getActiveSpreadsheet().insertSheet('User connection history');
+    sheet.appendRow(['Email', 'Timestamp']);
+  }
+ 
+  sheet.appendRow([email, new Date()]);
+}
+
+
+
+
+function testGetData() {
+  var result = getData();
+  var parsedResult = JSON.parse(result);
+  if (parsedResult.success) {
+    console.log("Nombre total d'entrées : " + parsedResult.data.length);
+    console.log("Exemple de première entrée :");
+    console.log(JSON.stringify(parsedResult.data[0], null, 2));
+  } else {
+    console.error("Erreur : " + parsedResult.message);
+  }
+}
+
+
+
+
+function generateEntryKey() {
+  return Utilities.getUuid();
+}
+
+
+
+
+function generateUniqueKey(existingKeys) {
+  var newKey;
+  var counter = existingKeys.size + 1;
+  do {
+    newKey = "VK-" + counter;
+    counter++;
+  } while (existingKeys.has(newKey));
+  return newKey;
+}
+
+
+
+
+function getExistingEntries(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow <= 1) {
+    return new Set();
+  }
+  var data = sheet.getRange(2, 13, lastRow - 1, 1).getValues(); // Assuming Unique ID is in column M
+  var entries = new Set();
+  data.forEach(function(row) {
+    if (row[0]) {
+      entries.add(row[0]);
+    }
+  });
+  return entries;
+}
+
+
+
+
+
+
+
+
+function columnLetterToIndex(letter) {
+  let column = 0;
+  for (let i = 0; i < letter.length; i++) {
+    column += (letter.charCodeAt(i) - 64) * Math.pow(26, letter.length - i - 1);
+  }
+  return column - 1; // -1 car les indices de tableau commencent à 0
+}
+
+
+
+
+function getStatus(dueDate) {
+  var now = new Date();
+  if (dueDate < now) {
+    return 'LATE';
+  } else if (dueDate.toDateString() === now.toDateString()) {
+    return 'IN PROGRESS';
+  } else {
+    return 'TO DO';
+  }
+}
+
+
+
+
+function updateLastUpdateTime(metadataSheet, sheetName, updateTime) {
+  var data = metadataSheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === sheetName) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+ 
+  if (rowIndex === -1) {
+    metadataSheet.appendRow([sheetName, updateTime]);
+  } else {
+    metadataSheet.getRange(rowIndex, 2).setValue(updateTime);
+  }
+}
+
+
+
+
+function getOrCreateMetadataSheet(spreadsheet) {
+  var metadataSheet = spreadsheet.getSheetByName('Metadata');
+  if (!metadataSheet) {
+    metadataSheet = spreadsheet.insertSheet('Metadata');
+    metadataSheet.appendRow(['Sheet Name', 'Last Update Time']);
+  }
+  return metadataSheet;
+}
+
+
+
+
+function convertToDate(dateValue) {
+  if (dateValue instanceof Date) return dateValue;
+  if (typeof dateValue !== 'string' && typeof dateValue !== 'number') return new Date();
+
+
+
+
+  if (typeof dateValue === 'number') {
+    // Si c'est un nombre, considérez-le comme un timestamp Unix en millisecondes
+    return new Date(dateValue);
+  }
+
+
+
+
+  var formats = [
+    "yyyy-MM-dd",
+    "MM/dd/yyyy",
+    "dd/MM/yyyy",
+    "yyyy/MM/dd",
+    "dd-MM-yyyy",
+    "MM-dd-yyyy"
+  ];
+
+
+
+
+  for (var i = 0; i < formats.length; i++) {
+    try {
+      var date = Utilities.parseDate(dateValue, Session.getScriptTimeZone(), formats[i]);
+      if (date && !isNaN(date.getTime())) return date;
+    } catch (e) {
+      // Continue to next format
+    }
+  }
+
+
+
+
+  console.log("Échec de la conversion de date pour: " + dateValue);
+  return new Date();
+}
+
+
+
+
+function getData() {
+  console.log("Début de getData()");
+  try {
+    var targetSpreadsheet = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+    var dataSourcesSheet = targetSpreadsheet.getSheetByName('Data Sources');
+    var actionPlanSheet = targetSpreadsheet.getSheetByName('Action plan');
+    var mappingSheet = targetSpreadsheet.getSheetByName('ID_Mapping') || targetSpreadsheet.insertSheet('ID_Mapping');
+   
+    if (!dataSourcesSheet || !actionPlanSheet) {
+      console.error("Feuilles requises non trouvées");
+      return JSON.stringify({ success: false, message: 'Required sheets not found' });
+    }
+
+
+    // Vérifier et ajuster les en-têtes si nécessaire
+    var headers = actionPlanSheet.getRange(1, 1, 1, actionPlanSheet.getLastColumn()).getValues()[0];
+    var lastModifiedByIndex = headers.indexOf('LastModifiedBy');
+    if (lastModifiedByIndex !== headers.length - 1) {
+      // Déplacer 'LastModifiedBy' à la fin
+      headers.splice(lastModifiedByIndex, 1);
+      headers.push('LastModifiedBy');
+      actionPlanSheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+
+
+    var dataSourcesData = dataSourcesSheet.getDataRange().getValues();
+    console.log("Nombre de sources de données : " + (dataSourcesData.length - 1));
+    var headers = dataSourcesData.shift();
+   
+    var mappingData = mappingSheet.getDataRange().getValues();
+    var ikMapping = new Map();
+    var vkMapping = new Map();
+
+
+    mappingData.forEach(row => {
+      if (row[1] && row[1].startsWith('IK-')) {
+        ikMapping.set(row[0], row[1]);
+      } else if (row[1] && row[1].startsWith('VK-')) {
+        vkMapping.set(row[0], row[1]);
+      }
+    });
+
+
+    var issuesMap = new Map();
+    var tasksMap = new Map();
+    var lastIKNumber = Math.max(0, ...Array.from(ikMapping.values()).map(id => parseInt(id.split('-')[1])));
+    var lastVKNumber = Math.max(0, ...Array.from(vkMapping.values()).map(id => parseInt(id.split('-')[1])));
+
+
+    function getNextIKNumber() {
+      lastIKNumber++;
+      return `IK-${lastIKNumber}`;
+    }
+
+
+    function getNextVKNumber() {
+      lastVKNumber++;
+      return `VK-${lastVKNumber}`;
+    }
+
+
+    var finalEntries = [];
+    var issueCount = 0;
+    var taskCount = 0;
+
+
+    dataSourcesData.forEach(function(sourceRow, index) {
+      console.log("Traitement de la source de données " + (index + 1));
+      var sourceSpreadsheetId = sourceRow[0];
+      var sourceSheetName = sourceRow[1];
+      var issueColumn = sourceRow[2];
+      var actionColumn = sourceRow[3];
+      var assigneeColumn = sourceRow[4];
+      var dueDateColumn = sourceRow[5];
+      var areaLineColumn = sourceRow[6];
+      var submitterColumn = sourceRow[7];
+      var submissionDateColumn = sourceRow[8];
+      var tag = sourceRow[9];
+
+
+      var startRow = getStartRowFromColumn(issueColumn);
+     
+      issueColumn = safeColumnToIndex(issueColumn);
+      actionColumn = safeColumnToIndex(actionColumn);
+      assigneeColumn = safeColumnToIndex(assigneeColumn);
+      dueDateColumn = safeColumnToIndex(dueDateColumn);
+      areaLineColumn = safeColumnToIndex(areaLineColumn);
+      submitterColumn = safeColumnToIndex(submitterColumn);
+      submissionDateColumn = safeColumnToIndex(submissionDateColumn);
+
+
+      console.log(`Colonnes: Issue=${issueColumn}, Action=${actionColumn}, Assignee=${assigneeColumn}, DueDate=${dueDateColumn}`);
+      console.log(`Ligne de départ: ${startRow}`);
+
+
+      var sourceSpreadsheet = SpreadsheetApp.openById(sourceSpreadsheetId);
+      var sourceSheet = sourceSpreadsheet.getSheetByName(sourceSheetName);
+
+
+      if (sourceSheet) {
+        var sourceData = sourceSheet.getRange(startRow, 1, sourceSheet.getLastRow() - startRow + 1, sourceSheet.getLastColumn()).getValues();
+        sourceData.shift();
+
+
+        var currentIssue = null;
+
+
+        for (var rowIndex = 0; rowIndex < sourceData.length; rowIndex++) {
+          var row = sourceData[rowIndex];
+          var issueText = row[issueColumn];
+          var actionText = row[actionColumn];
+
+
+          console.log(`Ligne ${rowIndex + startRow + 1}: Issue="${issueText}", Action="${actionText}"`);
+
+
+          if (issueText && issueText.trim().toUpperCase() === "END OF THIS ACTION PLAN") {
+            console.log("Fin du plan d'action détectée. Arrêt de la collecte pour cette source.");
+            break;
+          }
+
+
+          if (issueText && issueText.trim() !== '') {
+            var issueUniqueId = createStableUniqueId(sourceSpreadsheetId, sourceSheetName, row, 'IK');
+            var issueId = getOrCreateId(issueUniqueId, 'IK', ikMapping, mappingSheet, getNextIKNumber);
+            currentIssue = createIssueEntry(issueId, issueText, row, sourceSpreadsheetId, sourceSheetName, assigneeColumn, dueDateColumn, areaLineColumn, submitterColumn, submissionDateColumn);
+            issuesMap.set(issueId, currentIssue);
+            console.log(`Problème créé: ${issueId} - ${issueText}`);
+          }
+
+
+          if (actionText && actionText.trim() !== '') {
+            var taskUniqueId = createStableUniqueId(sourceSpreadsheetId, sourceSheetName, row, 'VK');
+            var taskId = getOrCreateId(taskUniqueId, 'VK', vkMapping, mappingSheet, getNextVKNumber);
+            var taskEntry = createTaskEntry(taskId, actionText, row, sourceSpreadsheetId, sourceSheetName, assigneeColumn, dueDateColumn, areaLineColumn, submitterColumn, submissionDateColumn, currentIssue ? currentIssue[0] : '');
+            tasksMap.set(taskId, taskEntry);
+            console.log(`Tâche créée: ${taskId} - ${actionText}, liée au problème: ${currentIssue ? currentIssue[0] : 'Aucun'}`);
+
+
+            if (currentIssue) {
+              currentIssue[2] += currentIssue[2] ? `, ${taskId}` : taskId;
+            }
+          }
+        }
+      }
+    });
+
+
+    issuesMap.forEach((issue, issueId) => {
+      finalEntries.push(issue);
+      issueCount++;
+
+
+      var mentionedVKs = issue[2].split(', ').filter(vk => vk.trim() !== '');
+      mentionedVKs.forEach(vkId => {
+        if (tasksMap.has(vkId)) {
+          var task = tasksMap.get(vkId);
+          finalEntries.push(task);
+          taskCount++;
+          tasksMap.delete(vkId);
+        }
+      });
+    });
+
+
+    tasksMap.forEach((task, taskId) => {
+      var fakeIssueId = getNextIKNumber();
+      var fakeIssue = createIssueEntry(fakeIssueId, "Issue description to be created", [], '', '', -1, -1, -1, -1, -1);
+      fakeIssue[2] = taskId;
+     
+      finalEntries.push(fakeIssue);
+      finalEntries.push(task);
+     
+      issueCount++;
+      taskCount++;
+     
+      console.log(`Problème fictif créé: ${fakeIssueId} pour la tâche orpheline: ${taskId}`);
+    });
+
+
+    console.log("Résumé des entrées finales:");
+    console.log(`Total des entrées: ${finalEntries.length}`);
+    console.log(`Problèmes (IK): ${issueCount}`);
+    console.log(`Tâches (VK): ${taskCount}`);
+
+
+    var existingData = actionPlanSheet.getDataRange().getValues();
+    var existingHeaders = existingData.shift();
+    var uniqueIdIndex = existingHeaders.indexOf('Unique ID');
+    var lastUpdatedIndex = existingHeaders.indexOf('Last Updated');
+    var lastModifiedByIndex = existingHeaders.length - 1;
+
+
+    var updatedEntries = [];
+
+
+    existingData.forEach(function(row) {
+      var uniqueId = row[uniqueIdIndex];
+      var lastModifiedBy = row[lastModifiedByIndex];
+
+
+      if (lastModifiedBy === "APP") {
+        updatedEntries.push(row);
+      } else {
+        var updatedEntry = finalEntries.find(entry => entry[13] === uniqueId);
+        if (updatedEntry) {
+          updatedEntry[lastModifiedByIndex] = "SHEET";
+          updatedEntries.push(updatedEntry);
+        } else {
+          updatedEntries.push(row);
+        }
+      }
+    });
+
+
+    finalEntries.forEach(function(newEntry) {
+      if (!updatedEntries.some(entry => entry[uniqueIdIndex] === newEntry[13])) {
+        newEntry[lastModifiedByIndex] = "SHEET";
+        updatedEntries.push(newEntry);
+      }
+    });
+
+
+    if (updatedEntries.length > 0) {
+      var dataToWrite = updatedEntries.map(function(entry) {
+        return headers.map(function(header) {
+          return entry[headers.indexOf(header)] || '';
+        });
+      });
+      actionPlanSheet.getRange(2, 1, dataToWrite.length, headers.length).setValues(dataToWrite);
+    }
+
+
+    var allMappings = [...Array.from(ikMapping.entries()), ...Array.from(vkMapping.entries())];
+    mappingSheet.clear();
+    mappingSheet.appendRow(['UniqueID', 'MappedID']);
+    if (allMappings.length > 0) {
+      mappingSheet.getRange(2, 1, allMappings.length, 2).setValues(allMappings);
+    }
+
+
+    console.log("Fin de getData()");
+    return JSON.stringify({
+      success: true,
+      data: updatedEntries,
+      totalEntriesCount: updatedEntries.length,
+      issueCount: issueCount,
+      taskCount: taskCount
+    });
+
+
+  } catch (error) {
+    console.error("Erreur dans getData : " + error.message);
+    console.error("Stack trace : " + error.stack);
+    return JSON.stringify({ success: false, message: "Erreur lors de la récupération des données : " + error.message });
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function createIssueEntry(issueId, issueText, row, sourceSpreadsheetId, sourceSheetName, assigneeColumn, dueDateColumn, areaLineColumn, submitterColumn, submissionDateColumn) {
+  var uniqueId = createStableUniqueId(sourceSpreadsheetId, sourceSheetName, row, 'IK');
+  var issueEntry = [
+    issueId,
+    issueText,
+    '', // Will be updated with task keys
+    'TO DO',
+    sourceSheetName,
+    row[assigneeColumn] || '',
+    formatDate(safeConvertToDate(row[dueDateColumn]) || new Date()),
+    areaLineColumn >= 0 ? row[areaLineColumn] : '',
+    formatDate(new Date()),
+    'MEDIUM',
+    '',
+    submitterColumn >= 0 ? row[submitterColumn] : '',
+    formatDate(safeConvertToDate(row[submissionDateColumn]) || new Date()),
+    uniqueId,
+    '',
+    '',
+    '',
+    '[]',
+    '',
+    'Issue'
+  ];
+  console.log(`Problème créé: ${issueEntry[0]} - ${issueEntry[1]}`);
+  return issueEntry;
+}
+
+
+
+
+function createTaskEntry(taskId, actionText, row, sourceSpreadsheetId, sourceSheetName, assigneeColumn, dueDateColumn, areaLineColumn, submitterColumn, submissionDateColumn, parentIssueId) {
+  var uniqueId = createStableUniqueId(sourceSpreadsheetId, sourceSheetName, row);
+  var taskEntry = [
+    taskId,
+    parentIssueId, // Ajout du code IK du problème parent
+    actionText,
+    'TO DO',
+    sourceSheetName,
+    row[assigneeColumn] || '',
+    formatDate(safeConvertToDate(row[dueDateColumn]) || new Date()),
+    areaLineColumn >= 0 ? row[areaLineColumn] : '',
+    formatDate(new Date()),
+    'MEDIUM',
+    '',
+    submitterColumn >= 0 ? row[submitterColumn] : '',
+    formatDate(safeConvertToDate(row[submissionDateColumn]) || new Date()),
+    uniqueId,
+    '',
+    '',
+    '',
+    '[]',
+    '',
+    'Task'
+  ];
+  console.log(`Tâche créée: ${taskEntry[0]} - ${taskEntry[2]}, liée au problème: ${taskEntry[1]}`);
+  return taskEntry;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function getSubmissionDateFallback(submitInfo, fileCreationDate, fileLastUpdated, dueDate) {
+  if (submitInfo && submitInfo.submissionDate) {
+    return submitInfo.submissionDate;
+  }
+ 
+  if (fileCreationDate && fileCreationDate < dueDate) {
+    return fileCreationDate;
+  }
+ 
+  if (fileLastUpdated && fileLastUpdated < dueDate) {
+    return fileLastUpdated;
+  }
+ 
+  return new Date(); // Utilise la date actuelle comme dernier recours
+}
+
+
+
+
+function addIssueWithTasks(issue, tasks, issuesMap, tasksMap, sourceSheetName) {
+  console.log(`Début de addIssueWithTasks pour le problème ${issue[0]}`);
+  var taskKeys = tasks.map(task => task[0]);
+  issue[2] = taskKeys.join(', ');
+  issue[16] = JSON.stringify(taskKeys);
+ 
+  issuesMap.set(issue[13], issue);
+  console.log(`Problème ajouté à issuesMap: ${issue[0]} - ${issue[1]}`);
+ 
+  tasks.forEach((task, index) => {
+    task[1] = issue[0]; // Set parent issue ID for task
+    tasksMap.set(task[13], task);
+    console.log(`Tâche ajoutée à tasksMap: ${task[0]} - ${task[2]}, liée au problème: ${task[1]}`);
+  });
+  console.log(`Fin de addIssueWithTasks pour le problème ${issue[0]}`);
+}
+
+
+
+
+function getLatestDueDate(tasks) {
+  if (tasks.length === 0) {
+    return new Date(); // Retourne la date actuelle si aucune tâche n'est présente
+  }
+ 
+  return tasks.reduce((latest, task) => {
+    return task.dueDate > latest ? task.dueDate : latest;
+  }, new Date(0)); // Utilise la date la plus ancienne possible comme point de départ
+}
+
+
+
+
+function getMostFrequentAssignee(tasks) {
+  if (tasks.length === 0) {
+    return ''; // Retourne une chaîne vide si aucune tâche n'est présente
+  }
+ 
+  const assigneeCounts = tasks.reduce((counts, task) => {
+    counts[task.assignee] = (counts[task.assignee] || 0) + 1;
+    return counts;
+  }, {});
+
+
+
+
+  return Object.keys(assigneeCounts).reduce((a, b) => assigneeCounts[a] > assigneeCounts[b] ? a : b);
+}
+
+
+
+
+
+
+
+
+function getLastIssueNumber(existingData) {
+  const issueKeys = existingData
+    .filter(row => row[0].startsWith('IK-'))
+    .map(row => parseInt(row[0].split('-')[1]));
+  return Math.max(0, ...issueKeys);
+}
+
+
+
+
+function getLastActionNumber(existingData) {
+  const actionKeys = existingData
+    .filter(row => row[0].startsWith('VK-'))
+    .map(row => parseInt(row[0].split('-')[1]));
+  return Math.max(0, ...actionKeys);
+}
+
+
+
+
+function columnToIndex(column) {
+  if (typeof column === 'string' && column.match(/^[A-Z]+\d+$/)) {
+    return columnLetterToIndex(column.replace(/\d+/, ''));
+  }
+  return parseInt(column) - 1;  // Soustrayez 1 car les indices de tableau commencent à 0
+}
+
+
+
+
+function getStartRowFromColumn(column) {
+  if (typeof column === 'string') {
+    var match = column.match(/^([A-Z]+)(\d+)$/);
+    if (match) {
+      return parseInt(match[2]);
+    }
+  }
+  return 1; // Par défaut, commencer à la première ligne si le format n'est pas reconnu
+}
+
+
+
+
+function getStartRow(column) {
+  if (typeof column === 'string' && column.match(/^[A-Z]+\d+$/)) {
+    return parseInt(column.match(/\d+/)[0]);
+  }
+  return 1; // Par défaut, on commence à la première ligne
+}
+
+
+
+
+function columnLetterToIndex(letter) {
+  let column = 0;
+  for (let i = 0; i < letter.length; i++) {
+    column += (letter.charCodeAt(i) - 64) * Math.pow(26, letter.length - i - 1);
+  }
+  return column - 1; // -1 car les indices de tableau commencent à 0
+}
+
+
+
+
+function addDataSource(sourceData) {
+  var targetSpreadsheet = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  var dataSourcesSheet = targetSpreadsheet.getSheetByName('Data Sources');
+ 
+  if (!dataSourcesSheet) {
+    dataSourcesSheet = targetSpreadsheet.insertSheet('Data Sources');
+    dataSourcesSheet.appendRow([
+      'Spreadsheet ID', 'Sheet Name', 'Action Column', 'Assignee Column',
+      'Due Date Column', 'Area/Line Column', 'Submitter Column', 'Submission Date Column'
+    ]);
+  }
+ 
+  dataSourcesSheet.appendRow([
+    sourceData.spreadsheetId,
+    sourceData.sheetName,
+    sourceData.actionColumn,
+    sourceData.assigneeColumn,
+    sourceData.dueDateColumn,
+    sourceData.areaLineColumn,
+    sourceData.submitterColumn,
+    sourceData.submissionDateColumn
+  ]);
+ 
+  return true;
+}
+
+
+
+
+function safeColumnToIndex(column) {
+  if (typeof column === 'string') {
+    var match = column.match(/^([A-Z]+)(\d+)$/);
+    if (match) {
+      return columnLetterToIndex(match[1]);
+    } else if (column.match(/^[A-Z]+$/)) {
+      return columnLetterToIndex(column);
+    }
+  } else if (typeof column === 'number') {
+    return column - 1;
+  }
+  console.warn("Format de colonne invalide:", column);
+  return NaN;
+}
+
+
+
+
+function safeConvertToDate(dateValue) {
+  console.log(`Tentative de conversion de date pour: ${dateValue}`);
+  if (dateValue instanceof Date) {
+    console.log(`Date déjà au format Date: ${dateValue}`);
+    return dateValue;
+  }
+  if (typeof dateValue === 'number') {
+    console.log(`Conversion d'un timestamp en Date: ${dateValue}`);
+    return new Date(dateValue);
+  }
+  if (typeof dateValue !== 'string') {
+    console.log(`Type de date non reconnu, retour de null`);
+    return null;
+  }
+
+
+
+
+  var formats = [
+    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+    "yyyy-MM-dd HH:mm:ss",
+    "yyyy-MM-dd",
+    "MM/dd/yyyy",
+    "dd/MM/yyyy",
+    "yyyy/MM/dd",
+    "dd-MM-yyyy",
+    "MM-dd-yyyy"
+  ];
+
+
+
+
+  for (var i = 0; i < formats.length; i++) {
+    try {
+      var date = Utilities.parseDate(dateValue, Session.getScriptTimeZone(), formats[i]);
+      if (date && !isNaN(date.getTime())) {
+        console.log(`Date convertie avec succès en utilisant le format ${formats[i]}: ${date}`);
+        return date;
+      }
+    } catch (e) {
+      console.log(`Échec de la conversion avec le format ${formats[i]}`);
+    }
+  }
+
+
+
+
+  console.log(`Échec de la conversion de date pour: ${dateValue}. Retour de null.`);
+  return null;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function saveUserSettings(username, settings) {
+  var sheet = createUserManagementSheet();
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === username) {
+      var currentSettings = JSON.parse(data[i][2] || '{}');
+      var newSettings = Object.assign(currentSettings, settings);
+      sheet.getRange(i + 1, 3).setValue(JSON.stringify(newSettings));
+      return true;
+    }
+  }
+  return false;
+}
+
+
+
+
+function getNextUniqueId() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let counterSheet = ss.getSheetByName('UniqueIDCounter');
+  if (!counterSheet) {
+    counterSheet = ss.insertSheet('UniqueIDCounter');
+    counterSheet.getRange('A1').setValue(0);
+  }
+ 
+  const currentCounter = counterSheet.getRange('A1').getValue();
+  const nextCounter = currentCounter + 1;
+  counterSheet.getRange('A1').setValue(nextCounter);
+ 
+  return `UID-${nextCounter.toString().padStart(10, '0')}`;
+}
+
+
+
+
+function getOrCreatePersistentUniqueId(spreadsheetId, sheetName, rowIndex, columnIndex) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let idMappingSheet = ss.getSheetByName('UniqueIDMapping');
+  if (!idMappingSheet) {
+    idMappingSheet = ss.insertSheet('UniqueIDMapping');
+    idMappingSheet.appendRow(['SpreadsheetID', 'SheetName', 'RowIndex', 'ColumnIndex', 'UniqueID']);
+  }
+
+
+
+
+  const idData = idMappingSheet.getDataRange().getValues();
+  for (let i = 1; i < idData.length; i++) {
+    if (idData[i][0] === spreadsheetId &&
+        idData[i][1] === sheetName &&
+        idData[i][2] === rowIndex &&
+        idData[i][3] === columnIndex) {
+      return idData[i][4];
+    }
+  }
+
+
+
+
+  // Si aucun ID n'est trouvé, en créer un nouveau
+  const newId = getNextUniqueId();
+  idMappingSheet.appendRow([spreadsheetId, sheetName, rowIndex, columnIndex, newId]);
+  return newId;
+}
+
+
+
+
+function getOrCreateId(uniqueId, prefix, mapping, mappingSheet, getNextNumberFunction) {
+  if (mapping.has(uniqueId)) {
+    return mapping.get(uniqueId);
+  }
+  var newId = getNextNumberFunction();
+  mapping.set(uniqueId, newId);
+  mappingSheet.appendRow([uniqueId, newId]);
+  return newId;
+}
+
+
+
+
+
+
+
+
+function createStableUniqueId(spreadsheetId, sheetName, rowData, prefix) {
+  const contentToHash = JSON.stringify({
+    spreadsheetId: spreadsheetId,
+    sheetName: sheetName,
+    rowData: rowData,
+    prefix: prefix // Ajout du préfixe
+  });
+ 
+  const hash = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, contentToHash);
+  const hashHex = hash.map(byte => ('0' + (byte & 0xFF).toString(16)).slice(-2)).join('');
+ 
+  return `${prefix}-${hashHex.substring(0, 14)}`; // Inclure le préfixe dans l'ID
+}
+
+
+
+
+function createUniqueId(spreadsheetId, sheetName, row, column) {
+  const shortSpreadsheetId = spreadsheetId.substring(0, 8);
+  const cleanSheetName = sheetName.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10);
+  const timestamp = new Date().getTime();
+  return `${shortSpreadsheetId}-${cleanSheetName}-${row}-${column}-${timestamp}`;
+}
+
+
+
+
+function createOrGetUniqueId(spreadsheetId, sheetName, row, column) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let idSheet = ss.getSheetByName('UniqueIDs');
+  if (!idSheet) {
+    idSheet = ss.insertSheet('UniqueIDs');
+    idSheet.appendRow(['SpreadsheetID', 'SheetName', 'Row', 'Column', 'UniqueID']);
+  }
+
+
+
+
+  const idData = idSheet.getDataRange().getValues();
+  for (let i = 1; i < idData.length; i++) {
+    if (idData[i][0] === spreadsheetId &&
+        idData[i][1] === sheetName &&
+        idData[i][2] === row &&
+        idData[i][3] === column) {
+      return idData[i][4];
+    }
+  }
+
+
+
+
+  // Si aucun ID n'est trouvé, en créer un nouveau
+  const newId = createUniqueId(spreadsheetId, sheetName, row, column);
+  idSheet.appendRow([spreadsheetId, sheetName, row, column, newId]);
+  return newId;
+}
+
+
+
+
+function createUserManagementSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName('User Management');
+  if (!sheet) {
+    sheet = ss.insertSheet('User Management');
+    var headers = ['Username', 'Password', 'Settings'];
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+  return sheet;
+}
+
+
+
+
+
+
+
+
+function changeUserLanguage(username, language) {
+  return saveUserSettings(username, { language: language });
+}
+
+
+
+
+function doPost(e) {
+  try {
+    var result = updateAction(e.postData.contents);
+    return ContentService.createTextOutput(result)
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    console.error('Erreur dans doPost:', error);
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      message: "Erreur serveur: " + error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+
+
+
+function updateAction(updatedItemString) {
+  console.log('Début de updateAction avec les données suivantes:', updatedItemString);
+  var updatedItem;
+  try {
+    updatedItem = JSON.parse(updatedItemString);
+  } catch (error) {
+    console.error('Erreur lors du parsing des données JSON:', error);
+    return JSON.stringify({ success: false, message: 'Erreur de format des données' });
+  }
+
+
+
+
+  console.log('UniqueID de l\'élément à mettre à jour:', updatedItem.UniqueID);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+ 
+  if (!sheet) {
+    console.error('Feuille "Action plan" non trouvée');
+    return JSON.stringify({ success: false, message: 'Feuille "Action plan" non trouvée' });
+  }
+ 
+  var data = sheet.getDataRange().getValues();
+  var headers = data.shift();
+  console.log('En-têtes trouvés:', headers);
+
+
+
+
+  var uniqueIdIndex = findHeaderIndex(headers, 'uniqueid');
+  var lastUpdatedIndex = findHeaderIndex(headers, 'lastupdated');
+  var lastModifiedByIndex = headers.length; // Nouvelle colonne LastModifiedBy
+ 
+  if (uniqueIdIndex === -1 || lastUpdatedIndex === -1) {
+    console.error('Colonnes non trouvées ou mal nommées.');
+    return JSON.stringify({
+      success: false,
+      message: 'Structure de la feuille invalide: colonnes manquantes ou mal nommées',
+      details: {
+        uniqueIdFound: uniqueIdIndex !== -1,
+        lastUpdatedFound: lastUpdatedIndex !== -1,
+        availableHeaders: headers
+      }
+    });
+  }
+ 
+  var rowIndex = data.findIndex(row => row[uniqueIdIndex] === updatedItem.UniqueID);
+  if (rowIndex === -1) {
+    console.error('Ligne non trouvée pour l\'UniqueID:', updatedItem.UniqueID);
+    return JSON.stringify({ success: false, message: 'Élément non trouvé' });
+  }
+
+
+
+
+  rowIndex += 2; // +2 because we removed header and findIndex is 0-indexed
+
+
+
+
+  try {
+    var oldData = {};
+    headers.forEach((header, index) => {
+      oldData[header] = data[rowIndex-2][index];
+    });
+    console.log('Anciennes données:', JSON.stringify(oldData));
+
+
+
+
+    // Mise à jour de LastUpdated
+    updatedItem.LastUpdated = new Date().toISOString();
+
+
+
+
+    var updateValues = headers.map((header, index) => {
+      const normalizedHeader = normalizeFieldName(header);
+      if (index === uniqueIdIndex) return updatedItem.UniqueID;
+      if (index === lastUpdatedIndex) return new Date(updatedItem.LastUpdated);
+     
+      const oldValue = oldData[header];
+      let newValue = updatedItem[normalizedHeader];
+
+
+
+
+      // Gestion spéciale pour certains champs
+      switch (normalizedHeader) {
+        case 'action':
+          newValue = updatedItem.Action || oldValue;
+          break;
+        case 'duedate':
+        case 'submissiondate':
+        case 'realenddate':
+          newValue = newValue ? new Date(newValue) : oldValue;
+          break;
+        case 'tags':
+          newValue = Array.isArray(newValue) ? newValue.join(', ') : (newValue || oldValue);
+          break;
+        case 'history':
+        case 'comments':
+        case 'subtasks':
+          newValue = typeof newValue === 'object' ? JSON.stringify(newValue) : (newValue || oldValue);
+          break;
+        case 'link':
+          newValue = newValue !== undefined ? newValue : oldValue;
+          break;
+        default:
+          newValue = newValue !== undefined ? newValue : oldValue;
+      }
+
+
+
+
+      if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+        console.log(`Mise à jour de ${header}:`,
+                    `Ancien: ${JSON.stringify(oldValue)}, `,
+                    `Nouveau: ${JSON.stringify(newValue)}`);
+      } else {
+        console.log(`Pas de changement pour ${header}`);
+      }
+
+
+
+
+      return newValue;
+    });
+
+
+
+
+    // Ajout de la valeur LastModifiedBy
+    updateValues.push("APP");
+
+
+
+
+    console.log('Valeurs mises à jour:', JSON.stringify(updateValues));
+    sheet.getRange(rowIndex, 1, 1, headers.length + 1).setValues([updateValues]);
+
+
+
+
+    var historyIndex = findHeaderIndex(headers, 'history');
+    if (historyIndex !== -1) {
+      var oldHistory = JSON.parse(oldData[headers[historyIndex]] || '[]');
+      var changes = getDetailedChanges(oldData, updatedItem);
+      if (changes.length > 0) {
+        var newHistoryEntry = {
+          date: new Date().toISOString(),
+          user: Session.getActiveUser().getEmail(),
+          changes: changes
+        };
+        oldHistory.push(newHistoryEntry);
+        sheet.getRange(rowIndex, historyIndex + 1).setValue(JSON.stringify(oldHistory));
+        console.log('Historique mis à jour:', JSON.stringify(newHistoryEntry));
+      }
+    }
+
+
+
+
+    // Mise à jour des sous-tâches si nécessaire
+    if (updatedItem.Category === 'Issue') {
+      updateSubTasks(updatedItem, sheet);
+    }
+
+
+
+
+    console.log('Mise à jour terminée avec succès pour l\'UniqueID:', updatedItem.UniqueID);
+    return JSON.stringify({ success: true, message: 'Mise à jour réussie' });
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour:', error);
+    console.error('Stack trace:', error.stack);
+    return JSON.stringify({ success: false, message: 'Erreur lors de la mise à jour: ' + error.message });
+  }
+}
+
+
+
+
+function resetAppModifications() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+  var data = sheet.getDataRange().getValues();
+  var lastColumn = data[0].length;
+ 
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][lastColumn - 1] === "APP") {
+      sheet.getRange(i + 1, lastColumn).setValue("RESET");
+    }
+  }
+}
+
+
+
+
+function getDetailedChanges(oldData, newData) {
+  console.log('Début de getDetailedChanges');
+  console.log('Anciennes données:', JSON.stringify(oldData));
+  console.log('Nouvelles données:', JSON.stringify(newData));
+  var changes = [];
+  for (var key in newData) {
+    var normalizedKey = normalizeFieldName(key);
+    var oldValue = oldData[key] || oldData[normalizedKey];
+    var newValue = newData[key];
+    if (JSON.stringify(oldValue) !== JSON.stringify(newValue) && newValue !== undefined) {
+      console.log(`Changement détecté pour ${key}:`,
+                  `Ancien: ${JSON.stringify(oldValue)}, `,
+                  `Nouveau: ${JSON.stringify(newValue)}`);
+      changes.push({
+        field: key,
+        oldValue: oldValue,
+        newValue: newValue
+      });
+    }
+  }
+  console.log('Changements détectés:', changes);
+  return changes;
+}
+
+
+
+
+
+
+
+
+function findHeaderIndex(headers, targetHeader) {
+  console.log(`Recherche de l'index pour l'en-tête: ${targetHeader}`);
+  var index = headers.findIndex(header =>
+    header.trim().toLowerCase().replace(/\s+/g, '') === targetHeader.toLowerCase().replace(/\s+/g, '')
+  );
+  console.log(`Index trouvé pour ${targetHeader}: ${index}`);
+  return index;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+function formatDate(date) {
+  if (!(date instanceof Date) || isNaN(date)) {
+    console.warn('Invalid date:', date);
+    return '';
+  }
+  return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd'T'HH:mm:ss'Z'");
+}
+
+
+
+
+function generateChangeDescription(field, oldValue, newValue) {
+  switch(field) {
+    case 'Status':
+      return `Status changed from "${oldValue}" to "${newValue}"`;
+    case 'Assignee':
+      return `Assignee changed from "${oldValue}" to "${newValue}"`;
+    case 'DueDate':
+      return `Due date changed from ${formatDate(oldValue)} to ${formatDate(newValue)}`;
+    case 'Priority':
+      return `Priority changed from "${oldValue}" to "${newValue}"`;
+    case 'Action':
+      return `Task description updated`;
+    case 'Tags':
+      return `Tags updated from [${oldValue}] to [${newValue}]`;
+    default:
+      return `${field} updated from "${oldValue}" to "${newValue}"`;
+  }
+}
+
+
+
+
+function getChanges(oldData, newData) {
+  var changes = [];
+  for (var key in newData) {
+    if (JSON.stringify(oldData[key]) !== JSON.stringify(newData[key])) {
+      changes.push({
+        field: key,
+        oldValue: oldData[key],
+        newValue: newData[key]
+      });
+    }
+  }
+  return changes;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+function addTask(newTask) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+  var data = sheet.getDataRange().getValues();
+  var headers = data.shift();
+  var uniqueIdIndex = headers.indexOf('UniqueID');
+  var actionIndex = headers.indexOf('Action');
+  var keyIndex = headers.indexOf('Key');
+
+
+
+
+  var existingEntries = new Map(data.map(row => [row[uniqueIdIndex], row]));
+  var actionToUniqueIdMap = new Map(data.map(row => [row[actionIndex], row[uniqueIdIndex]]));
+
+
+
+
+  var uniqueId = actionToUniqueIdMap.get(newTask.Action) || generateEntryKey();
+  var existingEntry = existingEntries.get(uniqueId);
+
+
+
+
+  if (existingEntry) {
+    console.log("Cette tâche existe déjà. Mise à jour au lieu d'ajout.");
+    return updateTask(Object.assign({}, existingEntry, newTask, { UniqueID: uniqueId }));
+  }
+
+
+
+
+  var newKey = `VK-${data.length + 1}`;
+  while (data.some(row => row[keyIndex] === newKey)) {
+    newKey = `VK-${parseInt(newKey.split('-')[1]) + 1}`;
+  }
+
+
+
+
+  var newEntry = [
+    newKey,
+    newTask.Action,
+    newTask.Status,
+    newTask.Category,
+    newTask.Assignee,
+    new Date(newTask.DueDate),
+    newTask.AreaLine,
+    new Date(), // Last Updated
+    newTask.Priority,
+    newTask.RealEndDate ? new Date(newTask.RealEndDate) : null,
+    Session.getActiveUser().getEmail(), // Submitter
+    new Date(), // SubmissionDate
+    uniqueId, // UniqueID
+    Array.isArray(newTask.Tags) ? newTask.Tags.join(', ') : newTask.Tags, // Tags
+    '[]', // Comments (empty array)
+    '[]', // SubTasks (empty array)
+    JSON.stringify([{ // Initial history entry
+      date: new Date().toISOString(),
+      user: Session.getActiveUser().getEmail(),
+      changes: [{field: 'Action', oldValue: '', newValue: newTask.Action}]
+    }]),
+    newTask.Link || '' // Nouveau champ pour le lien
+  ];
+
+
+
+
+  sheet.appendRow(newEntry);
+  return true;
+}
+
+
+
+
+
+
+
+
+function addComment(taskKey, comment) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === taskKey) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+ 
+  if (rowIndex === -1) {
+    console.error('Tâche non trouvée pour la clé : ' + taskKey);
+    return false;
+  }
+ 
+  var comments = JSON.parse(data[rowIndex-1][14] || '[]');
+  comments.push({
+    author: Session.getActiveUser().getEmail(),
+    text: comment,
+    date: new Date().toISOString()
+  });
+ 
+  sheet.getRange(rowIndex, 15).setValue(JSON.stringify(comments));
+  return true;
+}
+
+
+
+
+
+
+
+
+function addSubTask(taskKey, subTask) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === taskKey) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+ 
+  if (rowIndex === -1) {
+    console.error('Tâche non trouvée pour la clé : ' + taskKey);
+    return false;
+  }
+ 
+  var subTasks = JSON.parse(data[rowIndex-1][15] || '[]');
+  subTasks.push({
+    id: Utilities.getUuid(),
+    description: subTask.description,
+    status: 'TO DO',
+    createdDate: new Date().toISOString()
+  });
+ 
+  sheet.getRange(rowIndex, 16).setValue(JSON.stringify(subTasks));
+  return true;
+}
+
+
+
+
+
+
+
+
+function updateSubTasks(issue, sheet) {
+  var subTasks = JSON.parse(issue.SubTasks || '[]');
+  var data = sheet.getDataRange().getValues();
+  var headers = data.shift();
+  var uniqueIdIndex = headers.findIndex(header => header.trim().toLowerCase() === 'unique id');
+ 
+  subTasks.forEach((task, index) => {
+    var taskUniqueId = createUniqueId(issue.UniqueID + '-task-' + (index + 1), new Date(task.dueDate));
+    var rowIndex = data.findIndex(row => row[uniqueIdIndex] === taskUniqueId);
+   
+    if (rowIndex === -1) {
+      // Nouvelle sous-tâche, l'ajouter
+      sheet.appendRow([
+        `VK-${data.length + 1}`, // Key
+        task.action,
+        'TO DO', // Status
+        'Task', // Category
+        task.assignee,
+        task.dueDate,
+        issue.AreaLine,
+        new Date(), // LastUpdated
+        'MEDIUM', // Priority
+        '', // RealEndDate
+        Session.getActiveUser().getEmail(), // Submitter
+        new Date(), // SubmissionDate
+        taskUniqueId,
+        '', // Tags
+        '', // Comments
+        '', // SubTasks
+        '[]', // History
+        '' // Link
+      ]);
+    } else {
+      // Mettre à jour la sous-tâche existante
+      var updateValues = headers.map((header, index) => {
+        switch(header) {
+          case 'Action': return task.action;
+          case 'Assignee': return task.assignee;
+          case 'DueDate': return new Date(task.dueDate);
+          case 'AreaLine': return issue.AreaLine;
+          case 'LastUpdated': return new Date();
+          default: return data[rowIndex][index];
+        }
+      });
+      sheet.getRange(rowIndex + 2, 1, 1, headers.length).setValues([updateValues]);
+    }
+  });
+}
+
+
+
+
+
+
+
+
+function getTaskHistory(taskKey) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+  var data = sheet.getDataRange().getValues();
+  var rowIndex = -1;
+  for (var i = 1; i < data.length; i++) {
+    if (data[i][0] === taskKey) {
+      rowIndex = i + 1;
+      break;
+    }
+  }
+ 
+  if (rowIndex === -1) {
+    console.error('Tâche non trouvée pour la clé : ' + taskKey);
+    return null;
+  }
+ 
+  return JSON.parse(data[rowIndex-1][16] || '[]');
+}
+
+
+
+
+function entryExists(existingData, uniqueId) {
+  console.log(`Vérification de l'existence de l'entrée avec uniqueId: ${uniqueId}`);
+ 
+  if (Array.isArray(existingData[0])) {
+    const uniqueIdIndex = 13; // Assurez-vous que cet index correspond à la position du Unique ID dans votre tableau
+    const exists = existingData.some(row => {
+      const rowUniqueId = row[uniqueIdIndex];
+      const doesExist = rowUniqueId === uniqueId;
+      if (doesExist) {
+        console.log(`Entrée existante trouvée: ${JSON.stringify(row)}`);
+      }
+      return doesExist;
+    });
+   
+    if (!exists) {
+      console.log(`Aucune entrée existante trouvée pour uniqueId: ${uniqueId}`);
+    }
+   
+    return exists;
+  } else {
+    const exists = existingData.includes(uniqueId);
+    console.log(`Vérification simple: ${exists ? "Entrée existante" : "Nouvelle entrée"}`);
+    return exists;
+  }
+}
+
+
+
+
+function exportToPDF(filters) {
+  var spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = spreadsheet.getSheetByName('Action plan');
+ 
+  // Appliquer les filtres (cette partie nécessiterait une logique plus complexe)
+  // Pour l'instant, on exporte toutes les données
+ 
+  var tempSheet = spreadsheet.insertSheet('Temp Export Sheet');
+  sheet.getDataRange().copyTo(tempSheet.getRange(1, 1));
+ 
+  var pdfFile = DriveApp.createFile(tempSheet.getAs('application/pdf'));
+  spreadsheet.deleteSheet(tempSheet);
+ 
+  // Créer un lien de téléchargement valide pendant 1 heure
+  var url = pdfFile.getDownloadUrl().replace("&export=download", "");
+ 
+  return url;
+}
+
+
+
+
+
+
+
+
+function testConnection() {
+  return JSON.stringify({
+    success: true,
+    message: "Connexion au serveur établie avec succès",
+    timestamp: new Date().toISOString()
+  });
+}
+
+
+
+
+
+
+
+
+// Ajoutez ces fonctions à votre fichier Google Apps Script existant
+
+
+
+
+
+
+
+
+function getUserEmail() {
+  return Session.getActiveUser().getEmail();
+}
+
+
+
+
+function getActionSubmitInfo(spreadsheetId, sheetName, row, column) {
+  try {
+    var file = DriveApp.getFileById(spreadsheetId);
+    var revisions = file.getRevisions();
+    var lastRevision = revisions[revisions.length - 1];
+   
+    for (var i = revisions.length - 1; i >= 0; i--) {
+      var revision = revisions[i];
+      var sheet = SpreadsheetApp.openById(revision.getId()).getSheetByName(sheetName);
+     
+      if (sheet) {
+        var cellValue = sheet.getRange(row, column).getValue();
+        if (cellValue) {
+          return {
+            submitter: revision.getLastModifyingUser().getEmail(),
+            submissionDate: revision.getLastUpdated()
+          };
+        }
+      }
+    }
+   
+    return null;
+  } catch (error) {
+    console.error("Erreur dans getActionSubmitInfo : " + error.message);
+    return null;
+  }
+}
+
+
+
+
+
+
+
+
+function getTranslations(language) {
+  var translations = {
+    en: {
+
+
+
+
+
+
+
+
+      // ...autres traductions...
+      "tasksByStatus": "Task by Status ",
+      "tasksByCategory": "Task by Caterogy",
+      "individualProductivity": "Individual Productivity",
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      // General
+      "title": "Advanced Task Manager",
+      "loading": "Loading...",
+      "error": "An error occurred",
+      "success": "Operation successful",
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete",
+      "confirm": "Confirm",
+      "yes": "Yes",
+      "no": "No",
+
+
+
+
+
+
+
+
+      // Navigation and Views
+      "listView": "List View",
+      "kanbanView": "Kanban View",
+      "dashboardView": "Dashboard View",
+      "customView": "Custom View",
+
+
+
+
+
+
+
+
+      // Task Management
+      "addTask": "+",
+      "editTask": "Edit Task",
+      "deleteTask": "Delete Task",
+      "taskDetails": "Task Details",
+      "noTasks": "No tasks found",
+
+
+
+
+
+
+
+
+      // Task Properties
+      "key": "Key",
+      "action": "Action",
+      "status": "Status",
+      "category": "Category",
+      "assignee": "Assignee",
+      "dueDate": "Due Date",
+      "priority": "Priority",
+      "tags": "Tags",
+      "areaLine": "Area/Line",
+      "lastUpdated": "Last Updated",
+      "realEndDate": "Real End Date",
+      "submitter": "Submitter",
+      "submissionDate": "Submission Date",
+      "comments": "Comments",
+      "subTasks": "Sub-Tasks",
+      "history": "History",
+
+
+
+
+
+
+
+
+      // Status Options
+      "toDo": "To Do",
+      "inProgress": "In Progress",
+      "done": "Done",
+      "late": "Late",
+
+
+
+
+
+
+
+
+      // Priority Options
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+
+
+
+
+
+
+
+
+      // Filters and Sorting
+      "filters": "Filters",
+      "clearFilters": "Clear Filters",
+      "search": "Search",
+      "sortBy": "Sort by",
+      "ascending": "Ascending",
+      "descending": "Descending",
+
+
+
+
+
+
+
+
+      // Export and Import
+      "exportCSV": "Export to CSV",
+      "exportPDF": "Export to PDF",
+      "import": "Import",
+
+
+
+
+
+
+
+
+      // User Management
+      "login": "Login",
+      "logout": "Logout",
+      "username": "Username",
+      "password": "Password",
+      "invalidCredentials": "Invalid credentials",
+      "loginSuccessful": "Login successful",
+
+
+
+
+
+
+
+
+      // Settings
+      "settings": "Settings",
+      "language": "Language",
+      "theme": "Theme",
+      "darkMode": "Dark Mode",
+      "lightMode": "Light Mode",
+      "settingsSaved": "Settings saved successfully",
+      "settingsSaveError": "Error saving settings",
+
+
+
+
+
+
+
+
+      // Custom Views
+      "saveCustomView": "Save Custom View",
+      "loadCustomView": "Load Custom View",
+      "deleteCustomView": "Delete Custom View",
+      "customViewName": "Custom View Name",
+
+
+
+
+
+
+
+
+      // Dashboard
+      "tasksByStatus": "Tasks by Status",
+      "tasksByCategory": "Tasks by Category",
+      "tasksByAssignee": "Tasks by Assignee",
+      "upcomingDeadlines": "Upcoming Deadlines",
+      "recentActivity": "Recent Activity",
+
+
+
+
+
+
+
+
+      // Misc
+      "noData": "No data available",
+      "loadMore": "Load More",
+      "showLess": "Show Less",
+      "allCategories": "All Categories",
+      "allAssignees": "All Assignees",
+      "selectDate": "Select Date",
+      "from": "From",
+      "to": "To",
+      "apply": "Apply",
+      "reset": "Reset",
+      "close": "Close"
+    },
+    fr: {
+
+
+
+
+
+
+
+
+      // ...autres traductions...
+      "tasksByStatus": "Taches par status",
+      "tasksByCategory": "Taches par Categorie",
+      "individualProductivity": "Productivite individuelle",
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      // Général
+      "title": "Gestionnaire de Tâches Avancé",
+      "loading": "Chargement...",
+      "error": "Une erreur est survenue",
+      "success": "Opération réussie",
+      "save": "Enregistrer",
+      "cancel": "Annuler",
+      "edit": "Modifier",
+      "delete": "Supprimer",
+      "confirm": "Confirmer",
+      "yes": "Oui",
+      "no": "Non",
+
+
+
+
+
+
+
+
+      // Navigation et Vues
+      "listView": "Vue Liste",
+      "kanbanView": "Vue Kanban",
+      "dashboardView": "Vue Tableau de Bord",
+      "customView": "Vue Personnalisée",
+
+
+
+
+
+
+
+
+      // Gestion des Tâches
+      "addTask": "+",
+      "editTask": "Modifier la Tâche",
+      "deleteTask": "Supprimer la Tâche",
+      "taskDetails": "Détails de la Tâche",
+      "noTasks": "Aucune tâche trouvée",
+
+
+
+
+
+
+
+
+      // Propriétés des Tâches
+      "key": "Clé",
+      "action": "Action",
+      "status": "Statut",
+      "category": "Catégorie",
+      "assignee": "Responsable",
+      "dueDate": "Date d'Échéance",
+      "priority": "Priorité",
+      "tags": "Tags",
+      "areaLine": "Zone/Ligne",
+      "lastUpdated": "Dernière Mise à Jour",
+      "realEndDate": "Date de Fin Réelle",
+      "submitter": "Soumis par",
+      "submissionDate": "Date de Soumission",
+      "comments": "Commentaires",
+      "subTasks": "Sous-Tâches",
+      "history": "Historique",
+
+
+
+
+
+
+
+
+      // Options de Statut
+      "toDo": "À Faire",
+      "inProgress": "En Cours",
+      "done": "Terminé",
+      "late": "En Retard",
+
+
+
+
+
+
+
+
+      // Options de Priorité
+      "high": "Haute",
+      "medium": "Moyenne",
+      "low": "Basse",
+
+
+
+
+
+
+
+
+      // Filtres et Tri
+      "filters": "Filtres",
+      "clearFilters": "Effacer les Filtres",
+      "search": "Rechercher",
+      "sortBy": "Trier par",
+      "ascending": "Croissant",
+      "descending": "Décroissant",
+
+
+
+
+
+
+
+
+      // Export et Import
+      "exportCSV": "Exporter en CSV",
+      "exportPDF": "Exporter en PDF",
+      "import": "Importer",
+
+
+
+
+
+
+
+
+      // Gestion des Utilisateurs
+      "login": "Connexion",
+      "logout": "Déconnexion",
+      "username": "Nom d'utilisateur",
+      "password": "Mot de passe",
+      "invalidCredentials": "Identifiants invalides",
+      "loginSuccessful": "Connexion réussie",
+
+
+
+
+
+
+
+
+      // Paramètres
+      "settings": "Paramètres",
+      "language": "Langue",
+      "theme": "Thème",
+      "darkMode": "Mode Sombre",
+      "lightMode": "Mode Clair",
+      "settingsSaved": "Paramètres enregistrés avec succès",
+      "settingsSaveError": "Erreur lors de l'enregistrement des paramètres",
+
+
+
+
+
+
+
+
+      // Vues Personnalisées
+      "saveCustomView": "Enregistrer la Vue Personnalisée",
+      "loadCustomView": "Charger une Vue Personnalisée",
+      "deleteCustomView": "Supprimer la Vue Personnalisée",
+      "customViewName": "Nom de la Vue Personnalisée",
+
+
+
+
+
+
+
+
+      // Tableau de Bord
+      "tasksByStatus": "Tâches par Statut",
+      "tasksByCategory": "Tâches par Catégorie",
+      "tasksByAssignee": "Tâches par Responsable",
+      "upcomingDeadlines": "Échéances à Venir",
+      "recentActivity": "Activité Récente",
+
+
+
+
+
+
+
+
+      // Divers
+      "noData": "Aucune donnée disponible",
+      "loadMore": "Charger Plus",
+      "showLess": "Afficher Moins",
+      "allCategories": "Toutes les Catégories",
+      "allAssignees": "Tous les Responsables",
+      "selectDate": "Sélectionner une Date",
+      "from": "Du",
+      "to": "Au",
+      "apply": "Appliquer",
+      "reset": "Réinitialiser",
+      "close": "Fermer"
+    },
+    ja: {
+
+
+
+
+
+
+
+
+      // ...autres traductions...
+      "tasksByStatus": "ステータス別タスク",
+      "tasksByCategory": "カテゴリー別タスク",
+      "individualProductivity": "個人生産性",
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      // 一般
+      "title": "高度なタスクマネージャー",
+      "loading": "読み込み中...",
+      "error": "エラーが発生しました",
+      "success": "操作が成功しました",
+      "save": "保存",
+      "cancel": "キャンセル",
+      "edit": "編集",
+      "delete": "削除",
+      "confirm": "確認",
+      "yes": "はい",
+      "no": "いいえ",
+
+
+
+
+
+
+
+
+      // ナビゲーションとビュー
+      "listView": "リストビュー",
+      "kanbanView": "カンバンビュー",
+      "dashboardView": "ダッシュボードビュー",
+      "customView": "カスタムビュー",
+
+
+
+
+
+
+
+
+      // タスク管理
+      "addTask": "+",
+      "editTask": "タスクを編集",
+      "deleteTask": "タスクを削除",
+      "taskDetails": "タスクの詳細",
+      "noTasks": "タスクが見つかりません",
+
+
+
+
+
+
+
+
+      // タスクのプロパティ
+      "key": "キー",
+      "action": "アクション",
+      "status": "ステータス",
+      "category": "カテゴリー",
+      "assignee": "担当者",
+      "dueDate": "期限",
+      "priority": "優先度",
+      "tags": "タグ",
+      "areaLine": "エリア/ライン",
+      "lastUpdated": "最終更新",
+      "realEndDate": "実際の終了日",
+      "submitter": "提出者",
+      "submissionDate": "提出日",
+      "comments": "コメント",
+      "subTasks": "サブタスク",
+      "history": "履歴",
+
+
+
+
+
+
+
+
+      // ステータスオプション
+      "toDo": "未着手",
+      "inProgress": "進行中",
+      "done": "完了",
+      "late": "遅延",
+
+
+
+
+
+
+
+
+      // 優先度オプション
+      "high": "高",
+      "medium": "中",
+      "low": "低",
+
+
+
+
+
+
+
+
+      // フィルターとソート
+      "filters": "フィルター",
+      "clearFilters": "フィルターをクリア",
+      "search": "検索",
+      "sortBy": "並び替え",
+      "ascending": "昇順",
+      "descending": "降順",
+
+
+
+
+
+
+
+
+      // エクスポートとインポート
+      "exportCSV": "CSVにエクスポート",
+      "exportPDF": "PDFにエクスポート",
+      "import": "インポート",
+
+
+
+
+
+
+
+
+      // ユーザー管理
+      "login": "ログイン",
+      "logout": "ログアウト",
+      "username": "ユーザー名",
+      "password": "パスワード",
+      "invalidCredentials": "無効な認証情報",
+      "loginSuccessful": "ログイン成功",
+
+
+
+
+
+
+
+
+      // 設定
+      "settings": "設定",
+      "language": "言語",
+      "theme": "テーマ",
+      "darkMode": "ダークモード",
+      "lightMode": "ライトモード",
+      "settingsSaved": "設定が正常に保存されました",
+      "settingsSaveError": "設定の保存中にエラーが発生しました",
+
+
+
+
+
+
+
+
+      // カスタムビュー
+      "saveCustomView": "カスタムビューを保存",
+      "loadCustomView": "カスタムビューを読み込む",
+      "deleteCustomView": "カスタムビューを削除",
+      "customViewName": "カスタムビュー名",
+
+
+
+
+
+
+
+
+      // ダッシュボード
+      "tasksByStatus": "ステータス別タスク",
+      "tasksByCategory": "カテゴリー別タスク",
+      "tasksByAssignee": "担当者別タスク",
+      "upcomingDeadlines": "今後の期限",
+      "recentActivity": "最近の活動",
+
+
+
+
+
+
+
+
+      // その他
+      "noData": "データがありません",
+      "loadMore": "さらに読み込む",
+      "showLess": "表示を減らす",
+      "allCategories": "すべてのカテゴリー",
+      "allAssignees": "すべての担当者",
+      "selectDate": "日付を選択",
+      "from": "開始",
+      "to": "終了",
+      "apply": "適用",
+      "reset": "リセット",
+      "close": "閉じる"
+    }
+  };
+ 
+  return translations[language] || translations.en;
+}
+
+
+
+
+function getDataSources() {
+  var spreadsheet = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheetByName('Data Sources');
+  var data = sheet.getDataRange().getValues();
+  data.shift(); // Remove header row
+  return data.map(function(row) {
+    return {
+      spreadsheetId: row[0],
+      sheetName: row[1],
+      actionColumn: row[2],
+      assigneeColumn: row[3],
+      dueDateColumn: row[4],
+      areaLineColumn: row[5],
+      submitterColumn: row[6],
+      submissionDateColumn: row[7],
+      tag: row[8]
+    };
+  });
+}
+
+
+
+
+function getDataSource(index) {
+  var spreadsheet = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheetByName('Data Sources');
+  var data = sheet.getDataRange().getValues();
+  data.shift(); // Remove header row
+  if (index >= 0 && index < data.length) {
+    var row = data[index];
+    return {
+      spreadsheetId: row[0],
+      sheetName: row[1],
+      actionColumn: row[2],
+      assigneeColumn: row[3],
+      dueDateColumn: row[4],
+      areaLineColumn: row[5],
+      submitterColumn: row[6],
+      submissionDateColumn: row[7],
+      tag: row[8]
+    };
+  }
+  return null;
+}
+
+
+
+
+function updateDataSource(updatedDataSource) {
+  var spreadsheet = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheetByName('Data Sources');
+  var index = parseInt(updatedDataSource.index);
+  var rowToUpdate = index + 2; // +2 because index is 0-based and we have a header row
+ 
+  sheet.getRange(rowToUpdate, 1, 1, 9).setValues([[
+    updatedDataSource.spreadsheetId,
+    updatedDataSource.sheetName,
+    updatedDataSource.actionColumn,
+    updatedDataSource.assigneeColumn,
+    updatedDataSource.dueDateColumn,
+    updatedDataSource.areaLineColumn,
+    updatedDataSource.submitterColumn,
+    updatedDataSource.submissionDateColumn,
+    updatedDataSource.tag
+  ]]);
+ 
+  return true;
+}
+
+
+
+
+function deleteDataSource(index) {
+  var spreadsheet = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  var sheet = spreadsheet.getSheetByName('Data Sources');
+  sheet.deleteRow(index + 2); // +2 because index is 0-based and we have a header row
+  return true;
+}
+function updateCellValue(key, field, newValue) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Action plan');
+  var data = sheet.getDataRange().getValues();
+  var headers = data.shift();
+ 
+  var keyIndex = headers.indexOf('Key');
+  var fieldIndex = headers.indexOf(field);
+  var lastModifiedByIndex = headers.indexOf('LastModifiedBy');
+ 
+  if (keyIndex === -1 || fieldIndex === -1 || lastModifiedByIndex === -1) {
+    throw new Error('Colonnes nécessaires non trouvées');
+  }
+ 
+  var rowIndex = data.findIndex(row => row[keyIndex] === key);
+  if (rowIndex === -1) {
+    throw new Error('Ligne non trouvée pour la clé: ' + key);
+  }
+ 
+  // Mise à jour de la valeur
+  sheet.getRange(rowIndex + 2, fieldIndex + 1).setValue(newValue);
+ 
+  // Mise à jour de LastModifiedBy
+  sheet.getRange(rowIndex + 2, lastModifiedByIndex + 1).setValue('APP');
+ 
+  // Mise à jour de l'historique
+  var historyIndex = headers.indexOf('History');
+  if (historyIndex !== -1) {
+    var oldHistory = JSON.parse(data[rowIndex][historyIndex] || '[]');
+    var newHistoryEntry = {
+      date: new Date().toISOString(),
+      user: Session.getActiveUser().getEmail(),
+      field: field,
+      oldValue: data[rowIndex][fieldIndex],
+      newValue: newValue
+    };
+    oldHistory.push(newHistoryEntry);
+    sheet.getRange(rowIndex + 2, historyIndex + 1).setValue(JSON.stringify(oldHistory));
+  }
+ 
+  return JSON.stringify({ success: true, message: 'Mise à jour réussie' });
+}
